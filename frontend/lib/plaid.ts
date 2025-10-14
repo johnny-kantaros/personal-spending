@@ -16,3 +16,21 @@ export async function exchangePublicToken(publicToken: string) {
   });
   return res.json();
 }
+
+export async function getTransactions(selectedBanks: string[]) {
+  const params = selectedBanks.map((b) => `items=${b}`).join("&");
+  const url = params
+    ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions?${params}`
+    : `${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getConnectedItems() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/items`);
+  if (!res.ok) throw new Error(`Failed to fetch connected items: ${res.statusText}`);
+  const data = await res.json();
+  return data.items;
+}

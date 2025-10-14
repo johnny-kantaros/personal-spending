@@ -1,6 +1,6 @@
 # routes.py
 
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from plaid.exceptions import ApiException
@@ -50,33 +50,45 @@ def fetch_transactions_for_token(access_token: str):
     latest_transactions = sorted(added, key=lambda t: t["date"], reverse=True)[:8]
     return latest_transactions
 
-
 @router.get("/transactions")
 def get_transactions(
-    item: Optional[str] = Query(None, description="Optional item name (bank) to fetch transactions for")
+    items: Optional[List[str]] = Query(
+        None,
+        description="Optional list of item names (banks) to fetch transactions for, e.g. ?items=chase&items=sofi"
+    )
 ):
+    """
+    Fetch transactions for specified items, or all items if none are specified.
+    """
     try:
-        if item:
+        result = {}
+        # Determine which items to fetch
+        if items:
+            selected_items = [item.lower() for item in items]
+        else:
+            # default to all environment access tokens
+            selected_items = [
+                key.replace("_ACCESS_TOKEN", "").lower()
+                for key in os.environ.keys()
+                if key.endswith("_ACCESS_TOKEN")
+            ]
+
+        for item in selected_items:
             access_token = os.getenv(f"{item.upper()}_ACCESS_TOKEN")
             if not access_token:
-                raise HTTPException(status_code=404, detail=f"Access token for '{item}' not found.")
-            transactions = fetch_transactions_for_token(access_token)
-            return {item.lower(): transactions}
+                result[item] = {"error": f"Access token for '{item}' not found."}
+                continue
 
-        else:
-            result = {}
-            for key, value in os.environ.items():
-                if key.endswith("_ACCESS_TOKEN"):
-                    item_name = key.replace("_ACCESS_TOKEN", "").lower()
-                    try:
-                        result[item_name] = fetch_transactions_for_token(value)
-                    except ApiException as e:
-                        result[item_name] = {"error": format_error(e)}
-            return result
+            try:
+                transactions = fetch_transactions_for_token(access_token)
+                result[item] = transactions
+            except ApiException as e:
+                result[item] = {"error": format_error(e)}
+
+        return result
 
     except ApiException as e:
         raise HTTPException(status_code=e.status, detail=format_error(e))
-
 
 class LinkTokenRequest(BaseModel):
     user_id: str
@@ -91,7 +103,6 @@ def create_link_token(body: LinkTokenRequest):
         products=[Products("transactions")],
         country_codes=[CountryCode("US")],
         language="en",
-        redirect_uri="https://spending-tracker.vercel.app/plaid/oauth-return",
     )
     response = plaid_client.link_token_create(request)
     return response.to_dict()
@@ -106,3 +117,36 @@ def exchange_public_token(body: PublicTokenRequest):
     request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
     response = plaid_client.item_public_token_exchange(request)
     return response.to_dict()
+
+
+@router.get("/items")
+def get_connected_items():
+    """
+    Returns a list of connected items (banks) with user-friendly names.
+    """
+    try:
+        result = []
+
+        for key, access_token in os.environ.items():
+            if key.endswith("_ACCESS_TOKEN"):
+                item_response = plaid_client.item_get({"access_token": access_token})
+                institution_id = item_response.item.institution_id
+                if institution_id:
+                    # Get institution details
+                    inst_response = plaid_client.institutions_get_by_id(
+                        {"institution_id": institution_id, "country_codes": ["US"]}
+                    )
+                    inst_name = inst_response.institution.name
+                else:
+                    # Fallback to env variable name
+                    inst_name = key.replace("_ACCESS_TOKEN", "").replace("_", " ").title()
+
+                result.append({
+                    "env_name": key.replace("_ACCESS_TOKEN", "").lower(),
+                    "display_name": inst_name
+                })
+
+        return {"items": result}
+
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=format_error(e))
