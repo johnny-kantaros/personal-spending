@@ -1,6 +1,8 @@
 # routes.py
+from datetime import datetime
+from typing import Optional, List, Sequence
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from plaid.exceptions import ApiException
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -10,9 +12,13 @@ from plaid.model.country_code import CountryCode
 import os
 from sqlalchemy.orm import Session
 
-from src.db.crud.item import add_item
+from src.constants import EXCLUDE_CATEGORIES
+from src.db.crud.item import add_item, get_items_by_ids
+from src.db.crud.transactions import fetch_transactions_by_month
 from src.db.db import SessionLocal
-from src.db.models import Item, Transaction
+from src.db.models import Item
+from collections import defaultdict
+from src.schemas import TransactionBase, LinkTokenRequest
 
 from src.services.plaid_client import plaid_client
 from dotenv import load_dotenv
@@ -35,21 +41,20 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/transactions")
-def get_transactions(item_id: str = None, db: Session = Depends(get_db)):
-    query = db.query(Item)
-    if item_id:
-        query = query.filter(Item.id == item_id)
-    items = query.all()
+@router.get("/transactions", response_model=List[TransactionBase])
+def get_transactions(
+    item_ids: Optional[List[str]] = Query(None),
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    try:
 
-    result = {}
-    for item in items:
-        transactions = db.query(Transaction).filter(Transaction.item_id == item.id)\
-                        .order_by(Transaction.date.desc()).limit(100).all()
-        result[item.institution_name or item.id] = [t.__dict__ for t in transactions]
-    return result
-class LinkTokenRequest(BaseModel):
-    user_id: str
+        transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=item_ids)
+        return [TransactionBase.model_validate(t) for t in transactions]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/link_token/create")
@@ -136,3 +141,37 @@ def sync_all_items(db: Session = Depends(get_db)):
         except Exception as e:
             result[item.institution_name or item.id] = f"error: {str(e)}"
     return result
+
+@router.get("/transactions/summary")
+def get_monthly_summary(
+    item_ids: Optional[List[str]] = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        items: Sequence[Item] = get_items_by_ids(db=db, item_ids=item_ids)
+        summary = defaultdict(lambda: defaultdict(float))
+
+        for item in items:
+            for t in item.transactions:
+                if not t.date:
+                    continue
+                if t.primary_category in EXCLUDE_CATEGORIES:
+                    continue
+                month_key = t.date.strftime("%Y-%m")  # e.g., "2025-10"
+                category = t.primary_category or "Other"
+                summary[month_key][category] += t.amount
+
+        # Convert to list of dicts for easier frontend consumption
+        result = [
+            {
+                "month": month,
+                "categories": [{"name": cat, "total": total} for cat, total in cats.items()],
+                "total": sum(cats.values()),
+            }
+            for month, cats in sorted(summary.items())
+        ]
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
