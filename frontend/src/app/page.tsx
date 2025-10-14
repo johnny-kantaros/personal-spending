@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { createLinkToken, exchangePublicToken } from "@/lib/plaid";
+import { PlaidLinkError } from "react-plaid-link";
+
 
 export default function Home() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -20,7 +22,10 @@ export default function Home() {
       const response = await exchangePublicToken(public_token);
       setAccessToken(response.access_token);
     },
-    onExit: (err: any) => console.log("Link exit:", err),
+    onExit: (err: PlaidLinkError | null) => {
+  if (err) console.log("Link exit:", err);
+},
+
   };
 
   const { open, ready } = usePlaidLink(config);
