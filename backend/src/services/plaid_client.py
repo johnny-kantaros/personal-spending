@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
-PLAID_SECRET = os.getenv("PLAID_SECRET")
 PLAID_ENV = os.getenv("PLAID_ENV", "sandbox")
+PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
+PLAID_SECRET = os.getenv("PLAID_SECRET_PRODUCTION") if PLAID_ENV == "production" else os.getenv("PLAID_SECRET_SANDBOX")
 
 # Set Plaid host
 host = {

@@ -14,8 +14,8 @@ type TransactionsResponse = {
 };
 
 type BankItem = {
-  env_name: string;
-  display_name: string;
+  id: string;
+  institution_name: string;
 };
 
 export default function TransactionsPage() {
@@ -68,16 +68,16 @@ export default function TransactionsPage() {
           ) : (
             availableBanks.map((bank) => (
               <label
-                key={bank.env_name}
+                key={bank.id}
                 className="flex items-center space-x-2 cursor-pointer"
               >
                 <input
                   type="checkbox"
-                  checked={selectedBanks.includes(bank.env_name)}
-                  onChange={() => toggleBank(bank.env_name)}
+                  checked={selectedBanks.includes(bank.id)}
+                  onChange={() => toggleBank(bank.id)}
                   className="w-4 h-4 accent-blue-500"
                 />
-                <span className="text-gray-800">{bank.display_name}</span>
+                <span className="text-gray-800">{bank.institution_name}</span>
               </label>
             ))
           )}
@@ -94,13 +94,13 @@ export default function TransactionsPage() {
 
       {transactions && (
         <div className="mt-8 w-full max-w-3xl space-y-6">
-          {Object.entries(transactions).map(([env_name, trans]) => {
-            const bank = availableBanks.find((b) => b.env_name === env_name);
-            const displayName = bank ? bank.display_name : env_name;
+          {Object.entries(transactions).map(([id, trans]) => {
+            const bank = availableBanks.find((b) => b.id === id);
+            const displayName = bank ? bank.institution_name : id;
 
             return (
               <div
-                key={env_name}
+                key={id}
                 className="bg-white rounded-lg shadow p-4 transition hover:shadow-lg"
               >
                 <h2 className="text-xl font-semibold mb-3">{displayName}</h2>

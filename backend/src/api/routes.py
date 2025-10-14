@@ -1,0 +1,138 @@
+# routes.py
+
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from plaid.exceptions import ApiException
+from plaid.model.link_token_create_request import LinkTokenCreateRequest
+from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
+from plaid.model.products import Products
+from plaid.model.country_code import CountryCode
+import os
+from sqlalchemy.orm import Session
+
+from src.db.crud.item import add_item
+from src.db.db import SessionLocal
+from src.db.models import Item, Transaction
+
+from src.services.plaid_client import plaid_client
+from dotenv import load_dotenv
+
+from src.services.transactions_sync import sync_transactions
+
+load_dotenv()
+router = APIRouter()
+
+def format_error(e: ApiException):
+    return {
+        "status_code": e.status,
+        "error": str(e.body)
+    }
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/transactions")
+def get_transactions(item_id: str = None, db: Session = Depends(get_db)):
+    query = db.query(Item)
+    if item_id:
+        query = query.filter(Item.id == item_id)
+    items = query.all()
+
+    result = {}
+    for item in items:
+        transactions = db.query(Transaction).filter(Transaction.item_id == item.id)\
+                        .order_by(Transaction.date.desc()).limit(100).all()
+        result[item.institution_name or item.id] = [t.__dict__ for t in transactions]
+    return result
+class LinkTokenRequest(BaseModel):
+    user_id: str
+
+
+@router.post("/link_token/create")
+def create_link_token(body: LinkTokenRequest):
+    environment = os.getenv("PLAID_ENV", "sandbox")
+    redirect_uri = os.getenv("PLAID_REDIRECT_URI_PROD") if environment == "production" else os.getenv("PLAID_REDIRECT_URI_DEV")
+    request = LinkTokenCreateRequest(
+        user={"client_user_id": body.user_id},
+        client_name="Johnny's Spending Tracker",
+        products=[Products("transactions")],
+        country_codes=[CountryCode("US")],
+        language="en",
+        redirect_uri=os.getenv("PLAID_REDIRECT_URI_DEV"),
+    )
+    response = plaid_client.link_token_create(request)
+    return response.to_dict()
+
+
+class PublicTokenRequest(BaseModel):
+    public_token: str
+
+
+@router.post("/item/public_token/exchange")
+def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db)):
+    try:
+        # Exchange the public_token for an access_token
+        request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
+        response = plaid_client.item_public_token_exchange(request).to_dict()
+
+        access_token = response["access_token"]
+        item_id = response["item_id"]
+
+        # Fetch institution info for a human-readable name
+        item_response = plaid_client.item_get({"access_token": access_token})
+        institution_id = item_response.item.institution_id
+
+        institution_name = None
+        if institution_id:
+            inst_response = plaid_client.institutions_get_by_id(
+                {"institution_id": institution_id, "country_codes": ["US"]}
+            )
+            institution_name = inst_response.institution.name
+
+        new_item: Item = add_item(
+            item_id=item_id,
+            access_token=access_token,
+            institution_name=institution_name,
+            db=db
+        )
+
+        sync_transactions(new_item, db)
+
+        return {"message": "Item created successfully", "item": new_item.id}
+
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=format_error(e))
+
+
+
+@router.get("/items")
+def get_connected_items(db: Session = Depends(get_db)):
+    """
+    Returns a list of connected items (banks) stored in the database.
+    """
+    items = db.query(Item).all()
+    result = []
+
+    for item in items:
+        result.append({
+            "id": item.id,
+            "institution_name": item.institution_name or item.id
+        })
+
+    return {"items": result}
+
+@router.post("/items/sync")
+def sync_all_items(db: Session = Depends(get_db)):
+    items = db.query(Item).all()
+    result = {}
+    for item in items:
+        try:
+            sync_transactions(item, db)
+            result[item.institution_name or item.id] = "synced"
+        except Exception as e:
+            result[item.institution_name or item.id] = f"error: {str(e)}"
+    return result

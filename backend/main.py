@@ -1,10 +1,26 @@
 # main.py
 
 from fastapi import FastAPI
-from src.routes import router as transactions_router
+from src.api.routes import router as transactions_router
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from src.db.db import init_db
 
-app = FastAPI(title="Plaid FastAPI")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    init_db()
+    print("✅ Database initialized.")
+
+    # Yield control to the app (this runs during the app's lifetime)
+    yield
+
+    # Shutdown logic (optional)
+    print("👋 App shutting down...")
+
+
+app = FastAPI(title="Plaid FastAPI", lifespan=lifespan)
 
 origins = [
     "http://localhost:3000",
