@@ -12,7 +12,9 @@ from plaid.model.country_code import CountryCode
 import os
 
 from src.plaid_client import plaid_client
+from dotenv import load_dotenv
 
+load_dotenv()
 router = APIRouter()
 
 def format_error(e: ApiException):
@@ -47,7 +49,7 @@ def fetch_transactions_for_token(access_token: str):
             has_more = False
 
     # Return 8 most recent transactions by date
-    latest_transactions = sorted(added, key=lambda t: t["date"], reverse=True)[:8]
+    latest_transactions = sorted(added, key=lambda t: t["date"], reverse=True)[:100]
     return latest_transactions
 
 @router.get("/transactions")
@@ -96,13 +98,15 @@ class LinkTokenRequest(BaseModel):
 
 @router.post("/link_token/create")
 def create_link_token(body: LinkTokenRequest):
-    print("Received body:", body)
+    environment = os.getenv("PLAID_ENV", "sandbox")
+    redirect_uri = os.getenv("PLAID_REDIRECT_URI_PROD") if environment == "production" else os.getenv("PLAID_REDIRECT_URI_DEV")
     request = LinkTokenCreateRequest(
         user={"client_user_id": body.user_id},
         client_name="Johnny's Spending Tracker",
         products=[Products("transactions")],
         country_codes=[CountryCode("US")],
         language="en",
+        redirect_uri=os.getenv("PLAID_REDIRECT_URI_DEV"),
     )
     response = plaid_client.link_token_create(request)
     return response.to_dict()

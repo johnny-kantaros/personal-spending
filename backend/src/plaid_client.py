@@ -1,6 +1,9 @@
 import os
 from plaid import ApiClient, Configuration, Environment
 from plaid.api import plaid_api
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
 PLAID_SECRET = os.getenv("PLAID_SECRET")
