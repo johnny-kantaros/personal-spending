@@ -62,7 +62,7 @@ def get_transactions(
         else:
             result = {}
             for key, value in os.environ.items():
-                if key.endswith("_access_token"):
+                if key.endswith("_ACCESS_TOKEN"):
                     item_name = key.replace("_access_token", "").lower()
                     try:
                         result[item_name] = fetch_transactions_for_token(value)
