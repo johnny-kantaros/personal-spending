@@ -12,6 +12,7 @@ Track your spending by connecting bank accounts through Plaid. Automatically syn
 ## Tech
 
 **Backend**: FastAPI + SQLModel + SQLite + Plaid
+
 **Frontend**: Next.js + React + TypeScript + Tailwind
 
 ## Setup
