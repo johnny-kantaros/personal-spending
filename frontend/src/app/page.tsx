@@ -1,13 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { getConnectedItems, getTransactions, getTransactionsSummary } from "@/lib/plaid";
 import TransactionList from "@/components/transactions/TransactionList";
-import SpendingChart from "@/components/transactions/SpendingChart";
 import MonthSelector from "@/components/transactions/MonthSelector";
 import BankSelector from "@/components/transactions/BankSelector";
 import AddBankModal from "@/components/AddBankModal";
 import { Transaction } from "@/types/transactions";
+
+// Dynamically import components that use theme context to avoid SSR issues
+const SpendingChart = dynamic(() => import("@/components/transactions/SpendingChart"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-80 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+      <p className="text-gray-500 dark:text-gray-400">Loading chart...</p>
+    </div>
+  ),
+});
+
+const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), {
+  ssr: false,
+});
 
 interface BankItem {
   id: string;
@@ -88,7 +102,9 @@ export default function DashboardPage() {
     ? allTransactions.filter((t) => t.primary_category === selectedCategory)
     : allTransactions;
 
-  const chartData = summary.find((s) => s.month === selectedMonth)?.categories || [];
+  // Sort categories by total amount (highest to lowest) - create new array to avoid mutating readonly
+  const chartData = [...(summary.find((s) => s.month === selectedMonth)?.categories || [])]
+    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 
   // Sync transactions
   const handleSyncTransactions = async () => {
@@ -123,53 +139,89 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="min-h-screen p-6 bg-gray-50">
-      {/* Top row: Connected Banks + Add Bank + Sync */}
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-        <h2 className="text-lg font-semibold">Connected Banks</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSyncTransactions}
-            disabled={syncing}
-            className="px-4 py-2 bg-green-500 hover:bg-green-400 text-white rounded-lg font-medium shadow"
-          >
-            {syncing ? "Syncing..." : "Sync Transactions"}
-          </button>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg font-medium shadow"
-          >
-            + Add Bank
-          </button>
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-50">
+                Spending Tracker
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                Track and analyze your spending across all accounts
+              </p>
+            </div>
+            <ThemeToggle />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={handleSyncTransactions}
+              disabled={syncing}
+              className="px-4 py-2 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+            >
+              {syncing ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Syncing...
+                </span>
+              ) : (
+                "Sync Transactions"
+              )}
+            </button>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-50 rounded-lg font-medium transition-colors"
+            >
+              + Add Bank
+            </button>
+          </div>
         </div>
+
+        {/* Filters Section */}
+        <div className="mb-6 bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 transition-colors duration-200">
+          <div className="flex flex-wrap items-center gap-4">
+            <BankSelector selectedBanks={selectedBanks} banks={availableBanks} onChange={setSelectedBanks} />
+            <MonthSelector months={months} selectedMonth={selectedMonth} onChange={setSelectedMonth} />
+          </div>
+        </div>
+
+        {/* Spending Chart */}
+        <div className="mb-6">
+          <SpendingChart
+            categories={chartData}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+        </div>
+
+        {/* Transaction List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <svg className="animate-spin h-8 w-8 text-slate-600 dark:text-slate-400 mx-auto mb-3" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <p className="text-slate-600 dark:text-slate-400">Loading transactions...</p>
+            </div>
+          </div>
+        ) : (
+          <TransactionList transactions={transactions} />
+        )}
+
+        {/* Add Bank Modal */}
+        <AddBankModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onBankAdded={(banks) => setAvailableBanks(banks)}
+        />
       </div>
-
-      {/* Banks + month selector */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow flex flex-wrap items-center gap-4">
-        <BankSelector selectedBanks={selectedBanks} banks={availableBanks} onChange={setSelectedBanks} />
-        <MonthSelector months={months} selectedMonth={selectedMonth} onChange={setSelectedMonth} />
-      </div>
-
-      {/* Spending chart */}
-      <SpendingChart
-        categories={chartData}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
-
-      {/* Transaction list */}
-      {loading ? (
-        <p className="mt-4 text-gray-500">Loading transactions...</p>
-      ) : (
-        <TransactionList transactions={transactions} />
-      )}
-
-      {/* Add Bank Modal */}
-      <AddBankModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onBankAdded={(banks) => setAvailableBanks(banks)}
-      />
     </main>
   );
 }

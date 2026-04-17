@@ -14,10 +14,12 @@ function formatMonth(monthStr: string) {
 
 export default function MonthSelector({ months, selectedMonth, onChange }: Props) {
   return (
-    <div className="flex flex-col">
-      <label className="text-sm font-medium text-gray-700 mb-1">Select Month</label>
+    <div className="flex-1 min-w-[200px]">
+      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+        Select Month
+      </label>
       <select
-        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-slate-600 transition-all cursor-pointer hover:border-slate-400 dark:hover:border-slate-600"
         value={selectedMonth || ""}
         onChange={(e) => onChange(e.target.value)}
       >

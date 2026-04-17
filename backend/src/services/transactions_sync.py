@@ -3,6 +3,7 @@ from src.db.models import Item, Transaction
 from src.services.plaid_client import plaid_client
 from sqlalchemy.orm import Session
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
+from plaid.model.transactions_sync_request_options import TransactionsSyncRequestOptions
 
 def sync_transactions(item: Item, db: Session):
     cursor = item.cursor or ""
@@ -10,10 +11,19 @@ def sync_transactions(item: Item, db: Session):
 
     try:
         while has_more:
+            # For initial sync (empty cursor), request more historical data
+            options = None
+            if not cursor:
+                options = TransactionsSyncRequestOptions(
+                    include_original_description=True,
+                    days_requested=730  # Request up to 2 years of history
+                )
+
             request = TransactionsSyncRequest(
                 access_token=item.access_token,
                 cursor=cursor,
-                count=500
+                count=500,
+                options=options
             )
             response = plaid_client.transactions_sync(request).to_dict()
 
