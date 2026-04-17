@@ -12,9 +12,23 @@ from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
 from sqlalchemy.orm import Session, joinedload
 
-from src.constants import EXCLUDE_CATEGORIES
+from src.constants import EXCLUDE_CATEGORIES, EXCLUDE_DETAILED_CATEGORIES
 from src.db.crud.item import add_item, get_items_by_ids
-from src.db.crud.transactions import fetch_transactions_by_month
+from src.db.crud.transactions import (
+    fetch_transactions_by_month,
+    update_transaction_category,
+    link_transaction,
+    unlink_transaction,
+    get_linked_payments,
+    exclude_transaction,
+    unexclude_transaction
+)
+from src.db.crud.vendor_rules import (
+    create_or_update_vendor_rule,
+    apply_vendor_rule_to_transactions,
+    get_vendor_name_from_transaction
+)
+from src.db.models import Transaction
 from src.db.db import SessionLocal
 from src.db.models import Item
 from src.schemas import TransactionBase, LinkTokenRequest
@@ -167,11 +181,32 @@ def get_monthly_summary(
             for t in item.transactions:
                 if not t.date:
                     continue
+                # Skip excluded categories
                 if t.primary_category and t.primary_category in EXCLUDE_CATEGORIES:
                     continue
+                if t.detailed_category and t.detailed_category in EXCLUDE_DETAILED_CATEGORIES:
+                    continue
+                # Skip if no simplified category (shouldn't happen but be safe)
+                if not t.simplified_category:
+                    continue
+                # Skip linked transactions (they're already subtracted from parent)
+                if t.linked_to_transaction_id:
+                    continue
+                # Skip excluded transactions
+                if t.excluded:
+                    continue
+
                 month_key = t.date.strftime("%Y-%m")  # e.g., "2025-10"
-                category = t.primary_category or "Other"
-                summary[month_key][category] += t.amount
+                category = t.simplified_category
+
+                # Calculate adjusted amount (original - linked payments)
+                # t.amount = 172 (positive = spending), linked = -100 (negative = income)
+                # We want: 172 - 100 = 72
+                linked_payments = get_linked_payments(db=db, parent_transaction_id=t.transaction_id)
+                linked_total = sum(abs(p.amount) for p in linked_payments)
+                adjusted_amount = t.amount - linked_total
+
+                summary[month_key][category] += adjusted_amount
 
         # Convert to list of dicts for easier frontend consumption
         result = [
@@ -188,3 +223,172 @@ def get_monthly_summary(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while generating summary")
+
+
+class UpdateCategoryRequest(BaseModel):
+    simplified_category: str
+
+
+@router.patch("/transactions/{transaction_id}/category")
+def update_category(
+    transaction_id: str,
+    body: UpdateCategoryRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Update the simplified category for a transaction.
+    """
+    try:
+        transaction = update_transaction_category(
+            db=db,
+            transaction_id=transaction_id,
+            simplified_category=body.simplified_category
+        )
+        return TransactionBase.model_validate(transaction)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while updating category")
+
+
+class LinkTransactionRequest(BaseModel):
+    parent_transaction_id: str
+
+
+@router.post("/transactions/{transaction_id}/link")
+def link_payment(
+    transaction_id: str,
+    body: LinkTransactionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Link a payment transaction to a parent transaction (e.g., Venmo to dinner).
+    """
+    try:
+        transaction = link_transaction(
+            db=db,
+            payment_transaction_id=transaction_id,
+            parent_transaction_id=body.parent_transaction_id
+        )
+        return TransactionBase.model_validate(transaction)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while linking transaction")
+
+
+@router.post("/transactions/{transaction_id}/unlink")
+def unlink_payment(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Unlink a payment transaction from its parent.
+    """
+    try:
+        transaction = unlink_transaction(
+            db=db,
+            payment_transaction_id=transaction_id
+        )
+        return TransactionBase.model_validate(transaction)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while unlinking transaction")
+
+
+@router.get("/transactions/{transaction_id}/linked")
+def get_linked(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all payment transactions linked to a parent transaction.
+    """
+    try:
+        linked = get_linked_payments(db=db, parent_transaction_id=transaction_id)
+        return [TransactionBase.model_validate(t) for t in linked]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while fetching linked transactions")
+
+
+class SetVendorRuleRequest(BaseModel):
+    simplified_category: str
+
+
+@router.post("/transactions/{transaction_id}/set-vendor-rule")
+def set_vendor_rule(
+    transaction_id: str,
+    body: SetVendorRuleRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Set a vendor category rule based on a transaction's merchant.
+    Applies to all existing and future transactions from this vendor.
+    """
+    try:
+        # Get the transaction to extract vendor name
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        vendor_name = get_vendor_name_from_transaction(transaction)
+
+        # Create or update the rule
+        rule = create_or_update_vendor_rule(
+            db=db,
+            vendor_name=vendor_name,
+            simplified_category=body.simplified_category
+        )
+
+        # Apply to all existing transactions from this specific vendor
+        updated_count = apply_vendor_rule_to_transactions(
+            db=db,
+            vendor_name=vendor_name,
+            simplified_category=body.simplified_category
+        )
+
+        return {
+            "message": f"Vendor rule set for '{vendor_name}'",
+            "vendor_name": vendor_name,
+            "category": body.simplified_category,
+            "transactions_updated": updated_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while setting vendor rule: {str(e)}")
+
+
+@router.post("/transactions/{transaction_id}/exclude")
+def exclude_transaction_endpoint(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Exclude a transaction from spending view.
+    """
+    try:
+        transaction = exclude_transaction(db=db, transaction_id=transaction_id)
+        return TransactionBase.model_validate(transaction)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while excluding transaction")
+
+
+@router.post("/transactions/{transaction_id}/unexclude")
+def unexclude_transaction_endpoint(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Unexclude a transaction (restore to spending view).
+    """
+    try:
+        transaction = unexclude_transaction(db=db, transaction_id=transaction_id)
+        return TransactionBase.model_validate(transaction)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while unexcluding transaction")

@@ -4,9 +4,12 @@ import TransactionCard from "./TransactionCard";
 
 interface Props {
   transactions: Transaction[];
+  allTransactions?: Transaction[];
+  onCategoryUpdate?: (transactionId: string, newCategory: string) => void;
+  onLink?: () => void;
 }
 
-export default function TransactionList({ transactions }: Props) {
+export default function TransactionList({ transactions, allTransactions, onCategoryUpdate, onLink }: Props) {
   if (!transactions.length) {
     return (
       <div className="bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg border border-[#D8D5D0] dark:border-[#363636] p-12 text-center shadow-sm">
@@ -43,7 +46,13 @@ export default function TransactionList({ transactions }: Props) {
       </div>
       <div className="space-y-1">
         {transactions.map((tx) => (
-          <TransactionCard key={tx.transaction_id} tx={tx} />
+          <TransactionCard
+            key={tx.transaction_id}
+            tx={tx}
+            allTransactions={allTransactions}
+            onCategoryUpdate={onCategoryUpdate}
+            onLink={onLink}
+          />
         ))}
       </div>
     </div>

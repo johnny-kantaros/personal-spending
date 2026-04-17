@@ -90,10 +90,11 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
             />
             <XAxis
               dataKey="name"
-              angle={-45}
-              textAnchor="end"
+              angle={0}
+              textAnchor="middle"
               height={80}
-              tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}
+              tick={{ fill: isDark ? "#E6EAF0" : "#2D2A27", fontSize: 13, fontWeight: 500 }}
+              interval={0}
             />
             <YAxis
               tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}

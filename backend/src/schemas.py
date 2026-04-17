@@ -65,6 +65,9 @@ class TransactionBase(BaseModel):
 
     primary_category: Optional[str] = None
     detailed_category: Optional[str] = None
+    simplified_category: Optional[str] = None
+    linked_to_transaction_id: Optional[str] = None
+    excluded: bool = False
 
     class Config:
         from_attributes = True

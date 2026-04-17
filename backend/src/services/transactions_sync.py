@@ -1,6 +1,8 @@
 # sync.py
 from src.db.models import Item, Transaction
 from src.services.plaid_client import plaid_client
+from src.constants import get_simplified_category
+from src.db.crud.vendor_rules import get_vendor_rule, get_vendor_name_from_transaction
 from sqlalchemy.orm import Session
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from plaid.model.transactions_sync_request_options import TransactionsSyncRequestOptions
@@ -29,6 +31,12 @@ def sync_transactions(item: Item, db: Session):
 
             for tx in response.get("added", []) + response.get("modified", []):
                 pf_category = tx.get("personal_finance_category") or {}
+                primary = pf_category.get("primary")
+                detailed = pf_category.get("detailed")
+
+                # Determine simplified category
+                default_category = get_simplified_category(primary, detailed) if primary else None
+
                 transaction = Transaction(
                     transaction_id=tx["transaction_id"],
                     item_id=item.id,
@@ -50,9 +58,16 @@ def sync_transactions(item: Item, db: Session):
                     personal_finance_category=pf_category,
                     counterparties=tx.get("counterparties"),
 
-                    primary_category=pf_category.get("primary"),
-                    detailed_category=pf_category.get("detailed"),
+                    primary_category=primary,
+                    detailed_category=detailed,
+                    simplified_category=default_category,
                 )
+
+                # Check for vendor rule override
+                vendor_name = get_vendor_name_from_transaction(transaction)
+                vendor_rule = get_vendor_rule(db, vendor_name)
+                if vendor_rule:
+                    transaction.simplified_category = vendor_rule.simplified_category
 
                 db.merge(transaction)
 

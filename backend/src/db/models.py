@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Float, Date, Boolean, ForeignKey, JSON, Index
+from sqlalchemy import Column, String, Float, Date, Boolean, ForeignKey, JSON, Index, DateTime
+from datetime import datetime
 
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -43,8 +44,16 @@ class Transaction(Base):
     # Simplified text fields for quick filtering
     primary_category = Column(String, nullable=True)
     detailed_category = Column(String, nullable=True)
+    simplified_category = Column(String, nullable=True)
+
+    # Linking transactions (e.g., Venmo payments to dinner splits)
+    linked_to_transaction_id = Column(String, ForeignKey("transactions.transaction_id"), nullable=True)
+
+    # Exclude from spending view
+    excluded = Column(Boolean, default=False, nullable=False)
 
     item = relationship("Item", back_populates="transactions")
+    linked_to = relationship("Transaction", remote_side="Transaction.transaction_id", foreign_keys=[linked_to_transaction_id])
 
     __table_args__ = (
         Index('ix_transaction_item_id', 'item_id'),
@@ -53,3 +62,15 @@ class Transaction(Base):
         Index('ix_transaction_item_date', 'item_id', 'date'),
     )
 
+
+class VendorCategoryRule(Base):
+    __tablename__ = "vendor_category_rules"
+
+    id = Column(String, primary_key=True)
+    vendor_name = Column(String, nullable=False, unique=True, index=True)
+    simplified_category = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('ix_vendor_name', 'vendor_name'),
+    )
