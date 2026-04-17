@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Date, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Float, Date, Boolean, ForeignKey, JSON, Index
 
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,7 +9,7 @@ class Item(Base):
     __tablename__ = "items"
     id = Column(String, primary_key=True)
     access_token = Column(String, nullable=False)
-    institution_name = Column(String, nullable=False, unique=True)
+    institution_name = Column(String, nullable=True)
     cursor = Column(String, default="")
 
     transactions = relationship("Transaction", back_populates="item")
@@ -45,4 +45,11 @@ class Transaction(Base):
     detailed_category = Column(String, nullable=True)
 
     item = relationship("Item", back_populates="transactions")
+
+    __table_args__ = (
+        Index('ix_transaction_item_id', 'item_id'),
+        Index('ix_transaction_date', 'date'),
+        Index('ix_transaction_primary_category', 'primary_category'),
+        Index('ix_transaction_item_date', 'item_id', 'date'),
+    )
 

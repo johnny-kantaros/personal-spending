@@ -45,7 +45,7 @@ export async function getConnectedItems() {
 }
 
 export async function getTransactionsSummary(selectedBanks: string[]) {
-  const params = selectedBanks.map((b) => `items=${b}`).join("&");
+  const params = selectedBanks.map((b) => `item_ids=${b}`).join("&");
   const url = params
     ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/summary?${params}`
     : `${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/summary`;

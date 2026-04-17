@@ -24,13 +24,13 @@ app = FastAPI(title="Plaid FastAPI", lifespan=lifespan)
 
 origins = [
     "http://localhost:3000",
-    "https://spending-tracker.vercel.app"
+    "https://spending-tracker.vercel.app",
     "http://10.0.0.88:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

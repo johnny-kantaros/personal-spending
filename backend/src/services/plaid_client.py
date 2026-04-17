@@ -9,6 +9,12 @@ PLAID_ENV = os.getenv("PLAID_ENV", "sandbox")
 PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
 PLAID_SECRET = os.getenv("PLAID_SECRET_PRODUCTION") if PLAID_ENV == "production" else os.getenv("PLAID_SECRET_SANDBOX")
 
+# Validate required environment variables
+if not PLAID_CLIENT_ID:
+    raise ValueError("PLAID_CLIENT_ID environment variable is required but not set")
+if not PLAID_SECRET:
+    raise ValueError(f"PLAID_SECRET environment variable is required but not set (looking for PLAID_SECRET_{'PRODUCTION' if PLAID_ENV == 'production' else 'SANDBOX'})")
+
 # Set Plaid host
 host = {
     "sandbox": Environment.Sandbox,

@@ -1,6 +1,7 @@
 # routes.py
-from datetime import datetime
 from typing import Optional, List, Sequence
+from collections import defaultdict
+import os
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
@@ -9,23 +10,16 @@ from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
-import os
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.constants import EXCLUDE_CATEGORIES
 from src.db.crud.item import add_item, get_items_by_ids
 from src.db.crud.transactions import fetch_transactions_by_month
 from src.db.db import SessionLocal
 from src.db.models import Item
-from collections import defaultdict
 from src.schemas import TransactionBase, LinkTokenRequest
-
 from src.services.plaid_client import plaid_client
-from dotenv import load_dotenv
-
 from src.services.transactions_sync import sync_transactions
-
-load_dotenv()
 router = APIRouter()
 
 def format_error(e: ApiException):
@@ -49,12 +43,12 @@ def get_transactions(
     db: Session = Depends(get_db),
 ):
     try:
-
         transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=item_ids)
         return [TransactionBase.model_validate(t) for t in transactions]
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An error occurred while fetching transactions")
 
 
 @router.post("/link_token/create")
@@ -67,7 +61,7 @@ def create_link_token(body: LinkTokenRequest):
         products=[Products("transactions")],
         country_codes=[CountryCode("US")],
         language="en",
-        redirect_uri=os.getenv("PLAID_REDIRECT_URI_DEV"),
+        redirect_uri=redirect_uri,
     )
     response = plaid_client.link_token_create(request)
     return response.to_dict()
@@ -84,8 +78,11 @@ def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db
         request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
         response = plaid_client.item_public_token_exchange(request).to_dict()
 
-        access_token = response["access_token"]
-        item_id = response["item_id"]
+        access_token = response.get("access_token")
+        item_id = response.get("item_id")
+
+        if not access_token or not item_id:
+            raise HTTPException(status_code=500, detail="Invalid response from Plaid: missing access_token or item_id")
 
         # Fetch institution info for a human-readable name
         item_response = plaid_client.item_get({"access_token": access_token})
@@ -119,7 +116,7 @@ def get_connected_items(db: Session = Depends(get_db)):
     """
     Returns a list of connected items (banks) stored in the database.
     """
-    items = db.query(Item).all()
+    items = db.query(Item).options(joinedload(Item.transactions)).all()
     result = []
 
     for item in items:
@@ -132,15 +129,30 @@ def get_connected_items(db: Session = Depends(get_db)):
 
 @router.post("/items/sync")
 def sync_all_items(db: Session = Depends(get_db)):
-    items = db.query(Item).all()
-    result = {}
+    items = db.query(Item).options(joinedload(Item.transactions)).all()
+    results = []
+
     for item in items:
         try:
             sync_transactions(item, db)
-            result[item.institution_name or item.id] = "synced"
+            results.append({
+                "institution": item.institution_name or item.id,
+                "status": "success"
+            })
+        except ApiException as e:
+            results.append({
+                "institution": item.institution_name or item.id,
+                "status": "error",
+                "error": f"Plaid API error: {e.status}"
+            })
         except Exception as e:
-            result[item.institution_name or item.id] = f"error: {str(e)}"
-    return result
+            results.append({
+                "institution": item.institution_name or item.id,
+                "status": "error",
+                "error": "Sync failed"
+            })
+
+    return {"results": results}
 
 @router.get("/transactions/summary")
 def get_monthly_summary(
@@ -155,7 +167,7 @@ def get_monthly_summary(
             for t in item.transactions:
                 if not t.date:
                     continue
-                if t.primary_category in EXCLUDE_CATEGORIES:
+                if t.primary_category and t.primary_category in EXCLUDE_CATEGORIES:
                     continue
                 month_key = t.date.strftime("%Y-%m")  # e.g., "2025-10"
                 category = t.primary_category or "Other"
@@ -172,6 +184,7 @@ def get_monthly_summary(
         ]
 
         return result
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An error occurred while generating summary")

@@ -1,8 +1,7 @@
-from typing import Optional, List
+from typing import Optional, List, Sequence
 
-from sqlalchemy import select, extract, Sequence
-from sqlalchemy.orm import joinedload
-from sqlmodel import Session
+from sqlalchemy import select, extract
+from sqlalchemy.orm import joinedload, Session
 
 from src.constants import EXCLUDE_CATEGORIES
 from src.db.models import Transaction, Item
