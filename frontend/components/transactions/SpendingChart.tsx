@@ -36,9 +36,9 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
             dataKey="total"
             fill="#4F46E5"
             cursor={onSelectCategory ? "pointer" : "default"}
-            onClick={(data, index) => {
+            onClick={(data) => {
                 const categoryName = data.name;
-                if (categoryName) {       // <-- guard against undefined
+                if (categoryName) {
                 handleClick(categoryName);
                 }
             }}

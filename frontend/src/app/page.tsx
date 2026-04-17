@@ -63,6 +63,7 @@ export default function DashboardPage() {
         console.error(err);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBanks]);
 
   // Fetch transactions when month or banks change
@@ -102,6 +103,16 @@ export default function DashboardPage() {
       // After sync, refetch transactions and summary
       const data: MonthlySummary[] = await getTransactionsSummary(selectedBanks);
       setSummary(data);
+
+      // Update months list after sync
+      const monthsAvailable = data.map((d) => d.month);
+      setMonths(monthsAvailable);
+
+      // Set selected month if not already set
+      if (!selectedMonth && monthsAvailable.length) {
+        setSelectedMonth(monthsAvailable[monthsAvailable.length - 1]);
+      }
+
       const txs: Transaction[] = await getTransactions(selectedBanks, selectedMonth);
       setAllTransactions(txs.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
     } catch (err) {

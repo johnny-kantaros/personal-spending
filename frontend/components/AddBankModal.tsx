@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import { usePlaidLink, PlaidLinkError } from "react-plaid-link";
 import { createLinkToken, exchangePublicToken, getConnectedItems } from "@/lib/plaid";
 
+interface BankItem {
+  id: string;
+  institution_name: string;
+}
+
 interface AddBankModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onBankAdded: (banks: any[]) => void;
+  onBankAdded: (banks: BankItem[]) => void;
 }
 
 export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankModalProps) {
@@ -29,7 +34,7 @@ export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankMo
   const config = {
     token: linkToken!,
     onSuccess: async (public_token: string) => {
-      const response = await exchangePublicToken(public_token);
+      await exchangePublicToken(public_token);
       // Refresh bank list
       const items = await getConnectedItems();
       onBankAdded(items);
