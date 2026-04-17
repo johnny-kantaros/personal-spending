@@ -42,7 +42,7 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
   const getColor = (index: number, isSelected: boolean) => {
     const color = colorPalette[index % colorPalette.length];
     const baseColor = isDark ? color.dark : color.light;
-    return isSelected ? (isDark ? "#E6EAF0" : "#1A1D23") : baseColor;
+    return isSelected ? (isDark ? "#E6EAF0" : "#5A5550") : baseColor;
   };
 
   // Custom tooltip styling
@@ -75,7 +75,14 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
       </h2>
       <div className="w-full h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={categories} margin={{ top: 10, right: 10, bottom: 60, left: 10 }}>
+          <BarChart
+            data={categories}
+            margin={{ top: 10, right: 10, bottom: 60, left: 10 }}
+            onClick={(data) => {
+              if (!onSelectCategory || !data || !data.activeLabel) return;
+              handleClick(data.activeLabel);
+            }}
+          >
             <CartesianGrid
               strokeDasharray="3 3"
               stroke={isDark ? "#363636" : "#D8D5D0"}
@@ -97,12 +104,6 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
             <Bar
               dataKey="total"
               cursor={onSelectCategory ? "pointer" : "default"}
-              onClick={(data) => {
-                const categoryName = data.name;
-                if (categoryName) {
-                  handleClick(categoryName);
-                }
-              }}
               radius={[8, 8, 0, 0]}
             >
               {categories.map((entry, index) => (
