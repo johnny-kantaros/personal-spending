@@ -62,4 +62,6 @@ export interface Transaction {
   primary_category?: string;
   detailed_category?: string;
   simplified_category?: string;
+  linked_to_transaction_id?: string;
+  excluded?: boolean;
 }

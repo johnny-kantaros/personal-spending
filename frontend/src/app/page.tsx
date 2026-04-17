@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getConnectedItems, getTransactions, getTransactionsSummary } from "@/lib/plaid";
 import TransactionList from "@/components/transactions/TransactionList";
 import MonthSelector from "@/components/transactions/MonthSelector";
@@ -34,7 +35,10 @@ interface MonthlySummary {
   total: number;
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<MonthlySummary[]>([]);
   const [months, setMonths] = useState<string[]>([]);
@@ -45,6 +49,30 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  // Save scroll position before unload
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      sessionStorage.setItem('scrollPosition', window.scrollY.toString());
+    };
+
+    window.addEventListener('beforeunload', saveScrollPosition);
+    return () => window.removeEventListener('beforeunload', saveScrollPosition);
+  }, []);
+
+  // Restore scroll position after transactions load
+  useEffect(() => {
+    if (!loading && !initialLoad && allTransactions.length > 0) {
+      const savedPosition = sessionStorage.getItem('scrollPosition');
+      if (savedPosition) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedPosition));
+          sessionStorage.removeItem('scrollPosition');
+        }, 100);
+      }
+    }
+  }, [loading, initialLoad, allTransactions.length]);
 
   // Fetch connected banks
   useEffect(() => {
@@ -70,7 +98,23 @@ export default function DashboardPage() {
         const monthsAvailable = data.map((d) => d.month);
         setMonths(monthsAvailable);
 
-        if (!selectedMonth && monthsAvailable.length) {
+        // On initial load, check URL params first
+        if (initialLoad) {
+          const urlMonth = searchParams.get('month');
+          const urlCategory = searchParams.get('category');
+
+          if (urlMonth && monthsAvailable.includes(urlMonth)) {
+            setSelectedMonth(urlMonth);
+          } else if (!selectedMonth && monthsAvailable.length) {
+            setSelectedMonth(monthsAvailable[monthsAvailable.length - 1]);
+          }
+
+          if (urlCategory) {
+            setSelectedCategory(urlCategory);
+          }
+
+          setInitialLoad(false);
+        } else if (!selectedMonth && monthsAvailable.length) {
           setSelectedMonth(monthsAvailable[monthsAvailable.length - 1]);
         }
       } catch (err) {
@@ -79,6 +123,18 @@ export default function DashboardPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBanks]);
+
+  // Update URL when month or category changes
+  useEffect(() => {
+    if (!initialLoad && selectedMonth) {
+      const params = new URLSearchParams();
+      params.set('month', selectedMonth);
+      if (selectedCategory) {
+        params.set('category', selectedCategory);
+      }
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [selectedMonth, selectedCategory, router, initialLoad]);
 
   // Fetch transactions when month or banks change
   useEffect(() => {
@@ -124,6 +180,20 @@ export default function DashboardPage() {
         console.error(err);
       }
     })();
+  };
+
+  // Handle link/unlink - refetch everything
+  const handleLink = async () => {
+    try {
+      const [txs, summaryData] = await Promise.all([
+        getTransactions(selectedBanks, selectedMonth),
+        getTransactionsSummary(selectedBanks),
+      ]);
+      setAllTransactions(txs.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
+      setSummary(summaryData);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Sync transactions
@@ -232,7 +302,12 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <TransactionList transactions={transactions} onCategoryUpdate={handleCategoryUpdate} />
+          <TransactionList
+            transactions={transactions}
+            allTransactions={allTransactions}
+            onCategoryUpdate={handleCategoryUpdate}
+            onLink={handleLink}
+          />
         )}
 
         {/* Add Bank Modal */}
@@ -243,5 +318,13 @@ export default function DashboardPage() {
         />
       </div>
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#E8E6E1] dark:bg-[#0a0a0a] flex items-center justify-center">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

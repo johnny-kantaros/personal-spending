@@ -74,3 +74,59 @@ export async function updateTransactionCategory(transactionId: string, simplifie
   if (!res.ok) throw new Error(`Failed to update transaction category: ${res.statusText}`);
   return res.json();
 }
+
+export async function linkTransaction(paymentTransactionId: string, parentTransactionId: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${paymentTransactionId}/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parent_transaction_id: parentTransactionId }),
+  });
+
+  if (!res.ok) throw new Error(`Failed to link transaction: ${res.statusText}`);
+  return res.json();
+}
+
+export async function unlinkTransaction(paymentTransactionId: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${paymentTransactionId}/unlink`, {
+    method: "POST",
+  });
+
+  if (!res.ok) throw new Error(`Failed to unlink transaction: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getLinkedPayments(parentTransactionId: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${parentTransactionId}/linked`);
+
+  if (!res.ok) throw new Error(`Failed to fetch linked payments: ${res.statusText}`);
+  return res.json();
+}
+
+export async function setVendorRule(transactionId: string, simplifiedCategory: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${transactionId}/set-vendor-rule`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ simplified_category: simplifiedCategory }),
+  });
+
+  if (!res.ok) throw new Error(`Failed to set vendor rule: ${res.statusText}`);
+  return res.json();
+}
+
+export async function excludeTransaction(transactionId: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${transactionId}/exclude`, {
+    method: "POST",
+  });
+
+  if (!res.ok) throw new Error(`Failed to exclude transaction: ${res.statusText}`);
+  return res.json();
+}
+
+export async function unexcludeTransaction(transactionId: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${transactionId}/unexclude`, {
+    method: "POST",
+  });
+
+  if (!res.ok) throw new Error(`Failed to unexclude transaction: ${res.statusText}`);
+  return res.json();
+}
