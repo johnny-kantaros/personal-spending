@@ -43,6 +43,7 @@ class Transaction(Base):
     # Simplified text fields for quick filtering
     primary_category = Column(String, nullable=True)
     detailed_category = Column(String, nullable=True)
+    simplified_category = Column(String, nullable=True)
 
     item = relationship("Item", back_populates="transactions")
 

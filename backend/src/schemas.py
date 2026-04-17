@@ -65,6 +65,7 @@ class TransactionBase(BaseModel):
 
     primary_category: Optional[str] = None
     detailed_category: Optional[str] = None
+    simplified_category: Optional[str] = None
 
     class Config:
         from_attributes = True

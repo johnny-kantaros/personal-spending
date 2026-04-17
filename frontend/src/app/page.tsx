@@ -99,12 +99,32 @@ export default function DashboardPage() {
 
   // Filter transactions locally by selected category
   const transactions = selectedCategory
-    ? allTransactions.filter((t) => t.primary_category === selectedCategory)
+    ? allTransactions.filter((t) => t.simplified_category === selectedCategory)
     : allTransactions;
 
   // Sort categories by total amount (highest to lowest) - create new array to avoid mutating readonly
   const chartData = [...(summary.find((s) => s.month === selectedMonth)?.categories || [])]
     .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+
+  // Handle category update
+  const handleCategoryUpdate = (transactionId: string, newCategory: string) => {
+    // Update local state
+    setAllTransactions((prev) =>
+      prev.map((t) =>
+        t.transaction_id === transactionId ? { ...t, simplified_category: newCategory } : t
+      )
+    );
+
+    // Refetch summary to update chart
+    (async () => {
+      try {
+        const data: MonthlySummary[] = await getTransactionsSummary(selectedBanks);
+        setSummary(data);
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  };
 
   // Sync transactions
   const handleSyncTransactions = async () => {
@@ -212,7 +232,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <TransactionList transactions={transactions} />
+          <TransactionList transactions={transactions} onCategoryUpdate={handleCategoryUpdate} />
         )}
 
         {/* Add Bank Modal */}

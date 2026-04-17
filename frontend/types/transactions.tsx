@@ -61,4 +61,5 @@ export interface Transaction {
 
   primary_category?: string;
   detailed_category?: string;
+  simplified_category?: string;
 }

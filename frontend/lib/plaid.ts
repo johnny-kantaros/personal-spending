@@ -63,3 +63,14 @@ export async function syncTransactions() {
   if (!res.ok) throw new Error(`Failed to sync transactions: ${res.statusText}`);
   return res.json(); // returns { "SoFi": "synced", ... }
 }
+
+export async function updateTransactionCategory(transactionId: string, simplifiedCategory: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transactions/${transactionId}/category`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ simplified_category: simplifiedCategory }),
+  });
+
+  if (!res.ok) throw new Error(`Failed to update transaction category: ${res.statusText}`);
+  return res.json();
+}
