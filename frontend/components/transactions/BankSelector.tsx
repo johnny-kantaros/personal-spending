@@ -22,12 +22,12 @@ export default function BankSelector({ banks, selectedBanks, onChange }: Props) 
 
   return (
     <div className="flex-1">
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+      <label className="text-sm font-medium text-[#2D2A27] dark:text-[#E6EAF0] mb-2 block">
         Filter by Bank
       </label>
       <div className="flex flex-wrap gap-2">
         {banks.length === 0 ? (
-          <p className="text-slate-400 dark:text-slate-500">No connected banks</p>
+          <p className="text-[#8A837C] dark:text-[#938a87]">No connected banks</p>
         ) : (
           banks.map((bank) => {
             const isSelected = selectedBanks.includes(bank.id);
@@ -35,11 +35,11 @@ export default function BankSelector({ banks, selectedBanks, onChange }: Props) 
               <label
                 key={bank.id}
                 className={`
-                  flex items-center space-x-2 cursor-pointer px-3 py-1.5 rounded-md border transition-all duration-150
+                  flex items-center space-x-2 cursor-pointer px-3 py-1.5 rounded-md border transition-colors duration-150
                   ${
                     isSelected
-                      ? "bg-slate-700 dark:bg-slate-600 border-slate-700 dark:border-slate-600 text-white"
-                      : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600"
+                      ? "bg-[#6B8CAE] dark:bg-[#7A9FBF] border-[#6B8CAE] dark:border-[#7A9FBF] text-white"
+                      : "bg-[#FDFCFA] dark:bg-[#2a2a2a] border-[#D8D5D0] dark:border-[#363636] text-[#2D2A27] dark:text-[#E6EAF0] hover:border-[#6B8CAE] dark:hover:border-[#7A9FBF]"
                   }
                 `}
               >

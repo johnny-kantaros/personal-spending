@@ -51,16 +51,16 @@ export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankMo
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-lg shadow-xl p-6 w-full max-w-md relative border border-slate-200 dark:border-slate-800 animate-scaleIn"
+        className="bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg shadow-2xl p-6 w-full max-w-md relative border border-[#D8D5D0] dark:border-[#363636] animate-scaleIn"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-slate-50 transition-colors"
+          className="absolute top-4 right-4 text-[#8A837C] hover:text-[#2D2A27] dark:hover:text-[#E6EAF0] transition-colors"
           aria-label="Close modal"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,10 +69,10 @@ export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankMo
         </button>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-50">
+          <h2 className="text-2xl font-semibold mb-2 text-[#2D2A27] dark:text-[#E6EAF0]">
             Add a New Bank
           </h2>
-          <p className="text-slate-600 dark:text-slate-400">
+          <p className="text-[#6B645D] dark:text-[#938a87]">
             Securely connect your bank account through Plaid&apos;s encrypted connection
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankMo
         <button
           onClick={() => open()}
           disabled={!ready}
-          className="w-full px-4 py-3 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 bg-[#6B8CAE] hover:bg-[#5A7B9D] dark:bg-[#7A9FBF] dark:hover:bg-[#8BADC9] disabled:bg-[#D8D5D0] dark:disabled:bg-[#363636] text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
         >
           {ready ? (
             <>
@@ -97,7 +97,7 @@ export default function AddBankModal({ isOpen, onClose, onBankAdded }: AddBankMo
           )}
         </button>
 
-        <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-4">
+        <p className="text-xs text-center text-[#8A837C] dark:text-[#938a87] mt-4">
           🔒 Your data is encrypted and secure
         </p>
       </div>

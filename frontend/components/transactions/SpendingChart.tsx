@@ -14,16 +14,16 @@ interface Props {
   onSelectCategory?: (category?: string) => void;
 }
 
-// Minimalist color palette - subtle slate tones with muted accents
+// Ultra-muted chart palette - earthy tones
 const colorPalette = [
-  { light: "#475569", dark: "#94a3b8" }, // Slate 600/400
-  { light: "#64748b", dark: "#cbd5e1" }, // Slate 500/300
-  { light: "#0891b2", dark: "#67e8f9" }, // Cyan 600/300
-  { light: "#0d9488", dark: "#5eead4" }, // Teal 600/300
-  { light: "#6b7280", dark: "#9ca3af" }, // Gray 500/400
-  { light: "#059669", dark: "#6ee7b7" }, // Emerald 600/300
-  { light: "#334155", dark: "#e2e8f0" }, // Slate 700/200
-  { light: "#dc2626", dark: "#fca5a5" }, // Red 600/300
+  { light: "#7B8A9A", dark: "#6B8CAE" }, // Slate blue
+  { light: "#7B9A85", dark: "#6B9679" }, // Sage green
+  { light: "#9A8A9A", dark: "#9B8AAE" }, // Dusty purple
+  { light: "#B39A6B", dark: "#B8956B" }, // Muted gold
+  { light: "#B88A9A", dark: "#B87B96" }, // Dusty rose
+  { light: "#7B9A8A", dark: "#6B9B8A" }, // Sea foam
+  { light: "#B88A7B", dark: "#B87676" }, // Terra cotta
+  { light: "#8B8684", dark: "#8B8684" }, // Warm gray
 ];
 
 export default function SpendingChart({ categories, selectedCategory, onSelectCategory }: Props) {
@@ -42,16 +42,16 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
   const getColor = (index: number, isSelected: boolean) => {
     const color = colorPalette[index % colorPalette.length];
     const baseColor = isDark ? color.dark : color.light;
-    return isSelected ? (isDark ? "#cbd5e1" : "#334155") : baseColor;
+    return isSelected ? (isDark ? "#E6EAF0" : "#1A1D23") : baseColor;
   };
 
   // Custom tooltip styling
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: CategoryData; value: number }> }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-3">
-          <p className="font-medium text-slate-900 dark:text-slate-100">{payload[0].payload.name}</p>
-          <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+        <div className="bg-[#FDFCFA] dark:bg-[#2a2a2a] border border-[#D8D5D0] dark:border-[#363636] rounded-lg shadow-xl p-3">
+          <p className="font-medium text-[#2D2A27] dark:text-[#E6EAF0]">{payload[0].payload.name}</p>
+          <p className="text-lg font-semibold text-[#2D2A27] dark:text-[#E6EAF0]">
             ${Math.abs(payload[0].value).toFixed(2)}
           </p>
         </div>
@@ -62,15 +62,15 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
 
   if (categories.length === 0) {
     return (
-      <div className="w-full h-80 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center">
-        <p className="text-slate-500 dark:text-slate-400">No spending data for this month</p>
+      <div className="w-full h-80 bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg border border-[#D8D5D0] dark:border-[#363636] flex items-center justify-center shadow-sm">
+        <p className="text-[#8A837C] dark:text-[#938a87]">No spending data for this month</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
-      <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-slate-50">
+    <div className="w-full bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg border border-[#D8D5D0] dark:border-[#363636] p-6 shadow-sm">
+      <h2 className="text-xl font-semibold mb-4 text-[#2D2A27] dark:text-[#E6EAF0]">
         Spending by Category
       </h2>
       <div className="w-full h-80">
@@ -78,7 +78,7 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
           <BarChart data={categories} margin={{ top: 10, right: 10, bottom: 60, left: 10 }}>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke={isDark ? "#334155" : "#e2e8f0"}
+              stroke={isDark ? "#363636" : "#D8D5D0"}
               opacity={0.5}
             />
             <XAxis
@@ -86,13 +86,13 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
               angle={-45}
               textAnchor="end"
               height={80}
-              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 12 }}
+              tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}
             />
             <YAxis
-              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 12 }}
+              tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}
               tickFormatter={(value) => `$${value}`}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? "#1e293b" : "#f8fafc" }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? "#2a2a2a" : "#E8E6E1" }} />
 
             <Bar
               dataKey="total"
@@ -118,11 +118,11 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
       </div>
       {selectedCategory && (
         <div className="mt-4 text-center">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Filtered by: <span className="font-semibold text-slate-900 dark:text-slate-50">{selectedCategory}</span>
+          <p className="text-sm text-[#6B645D] dark:text-[#938a87]">
+            Filtered by: <span className="font-semibold text-[#2D2A27] dark:text-[#E6EAF0]">{selectedCategory}</span>
             <button
               onClick={() => onSelectCategory?.(undefined)}
-              className="ml-2 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50 underline"
+              className="ml-2 text-xs text-[#8A837C] hover:text-[#6B8CAE] dark:text-[#605e5e] dark:hover:text-[#7A9FBF] underline"
             >
               Clear filter
             </button>

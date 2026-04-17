@@ -52,7 +52,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 dark:bg-slate-950 transition-colors duration-200`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#E8E6E1] dark:bg-[#0a0a0a] transition-colors duration-200`}
       >
         <Providers>
           {children}

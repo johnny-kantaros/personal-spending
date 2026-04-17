@@ -12,14 +12,14 @@ function formatDate(dateStr: string) {
 
 function getCategoryColor() {
   // Minimalist approach - all categories same neutral styling
-  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  return "bg-[#E8E6E1] text-[#6B645D] dark:bg-[#2a2a2a] dark:text-[#b0a8a5]";
 }
 
 export default function TransactionCard({ tx }: Props) {
   const isPositive = tx.amount < 0; // Negative amounts are income in Plaid
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+    <div className="bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg border border-[#D8D5D0] dark:border-[#363636] p-4 transition-colors hover:bg-[#FDFCFA] dark:hover:bg-[#2a2a2a] shadow-sm">
       <div className="flex items-center justify-between gap-4">
         {/* Left: Merchant Info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -32,8 +32,8 @@ export default function TransactionCard({ tx }: Props) {
               className="w-10 h-10 rounded-md object-cover flex-shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-md bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-              <span className="text-slate-600 dark:text-slate-400 font-medium text-sm">
+            <div className="w-10 h-10 rounded-md bg-[#E8E6E1] dark:bg-[#2a2a2a] flex items-center justify-center flex-shrink-0">
+              <span className="text-[#6B645D] dark:text-[#938a87] font-medium text-sm">
                 {(tx.merchant_name || tx.name).charAt(0).toUpperCase()}
               </span>
             </div>
@@ -41,10 +41,10 @@ export default function TransactionCard({ tx }: Props) {
 
           {/* Merchant Name & Date */}
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 dark:text-slate-50 truncate">
+            <p className="font-medium text-[#2D2A27] dark:text-[#E6EAF0] truncate">
               {tx.merchant_name || tx.name}
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-[#8A837C] dark:text-[#b0a8a5]">
               {formatDate(tx.date)}
             </p>
           </div>
@@ -61,7 +61,7 @@ export default function TransactionCard({ tx }: Props) {
 
           {/* Amount */}
           <div className="text-right min-w-[80px]">
-            <p className="text-base font-semibold text-slate-900 dark:text-slate-50">
+            <p className="text-base font-semibold text-[#2D2A27] dark:text-[#E6EAF0]">
               {isPositive ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
             </p>
           </div>

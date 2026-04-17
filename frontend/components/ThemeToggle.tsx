@@ -8,14 +8,14 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative group"
+      className="p-2 rounded-lg border border-[#D8D5D0] dark:border-[#363636] hover:bg-[#F5F4F0] dark:hover:bg-[#2a2a2a] transition-colors relative group"
       aria-label="Toggle theme"
       title={`Current: ${theme === "auto" ? "Auto (8pm-6am)" : theme === "light" ? "Light" : "Dark"}`}
     >
       {theme === "auto" ? (
         // Auto icon (clock)
         <svg
-          className="w-5 h-5 text-slate-700 dark:text-slate-300"
+          className="w-5 h-5 text-[#6B645D] dark:text-[#938a87]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -30,7 +30,7 @@ export default function ThemeToggle() {
       ) : theme === "light" ? (
         // Sun icon
         <svg
-          className="w-5 h-5 text-slate-700 dark:text-slate-300"
+          className="w-5 h-5 text-[#6B645D] dark:text-[#938a87]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -45,7 +45,7 @@ export default function ThemeToggle() {
       ) : (
         // Moon icon
         <svg
-          className="w-5 h-5 text-slate-700 dark:text-slate-300"
+          className="w-5 h-5 text-[#6B645D] dark:text-[#938a87]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -60,7 +60,7 @@ export default function ThemeToggle() {
       )}
 
       {/* Tooltip */}
-      <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+      <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-[#2D2A27] dark:bg-[#E6EAF0] text-white dark:text-[#2D2A27] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
         {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
       </span>
     </button>

@@ -139,16 +139,16 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+    <main className="min-h-screen bg-[#E8E6E1] dark:bg-[#0a0a0a] transition-colors duration-200">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-50">
+              <h1 className="text-3xl font-semibold text-[#2D2A27] dark:text-[#E6EAF0]">
                 Spending Tracker
               </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-sm text-[#6B645D] dark:text-[#b8b0ad] mt-1">
                 Track and analyze your spending across all accounts
               </p>
             </div>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
             <button
               onClick={handleSyncTransactions}
               disabled={syncing}
-              className="px-4 py-2 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#6B8CAE] hover:bg-[#5A7B9D] dark:bg-[#7A9FBF] dark:hover:bg-[#8BADC9] disabled:bg-[#D8D5D0] dark:disabled:bg-[#363636] text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed shadow-sm"
             >
               {syncing ? (
                 <span className="flex items-center gap-2">
@@ -176,7 +176,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-50 rounded-lg font-medium transition-colors"
+              className="px-4 py-2 border border-[#D8D5D0] dark:border-[#363636] hover:bg-[#F5F4F0] dark:hover:bg-[#161A21] text-[#2D2A27] dark:text-[#E6EAF0] rounded-lg font-medium transition-colors"
             >
               + Add Bank
             </button>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Filters Section */}
-        <div className="mb-6 bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 transition-colors duration-200">
+        <div className="mb-6 bg-[#F5F4F0] dark:bg-[#19191a] p-5 rounded-lg border border-[#D8D5D0] dark:border-[#363636] transition-colors duration-200 shadow-sm">
           <div className="flex flex-wrap items-center gap-4">
             <BankSelector selectedBanks={selectedBanks} banks={availableBanks} onChange={setSelectedBanks} />
             <MonthSelector months={months} selectedMonth={selectedMonth} onChange={setSelectedMonth} />
@@ -204,11 +204,11 @@ export default function DashboardPage() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <svg className="animate-spin h-8 w-8 text-slate-600 dark:text-slate-400 mx-auto mb-3" viewBox="0 0 24 24">
+              <svg className="animate-spin h-8 w-8 text-[#4F8CFF] mx-auto mb-3" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <p className="text-slate-600 dark:text-slate-400">Loading transactions...</p>
+              <p className="text-[#6B645D] dark:text-[#938a87]">Loading transactions...</p>
             </div>
           </div>
         ) : (
