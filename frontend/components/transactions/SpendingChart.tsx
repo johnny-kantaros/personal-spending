@@ -14,16 +14,16 @@ interface Props {
   onSelectCategory?: (category?: string) => void;
 }
 
-// Ultra-muted chart palette - earthy tones
+// Modern, clean color palette
 const colorPalette = [
-  { light: "#7B8A9A", dark: "#6B8CAE" }, // Slate blue
-  { light: "#7B9A85", dark: "#6B9679" }, // Sage green
-  { light: "#9A8A9A", dark: "#9B8AAE" }, // Dusty purple
-  { light: "#B39A6B", dark: "#B8956B" }, // Muted gold
-  { light: "#B88A9A", dark: "#B87B96" }, // Dusty rose
-  { light: "#7B9A8A", dark: "#6B9B8A" }, // Sea foam
-  { light: "#B88A7B", dark: "#B87676" }, // Terra cotta
-  { light: "#8B8684", dark: "#8B8684" }, // Warm gray
+  { light: "#355FCA", dark: "#5A6B7D" }, // Blue / Muted blue-gray
+  { light: "#2C7A4B", dark: "#5D6B5F" }, // Green / Muted green-gray
+  { light: "#2C7C91", dark: "#4A6B6F" }, // Cyan / Muted cyan-gray
+  { light: "#7C3AED", dark: "#6B6279" }, // Purple / Muted purple-gray
+  { light: "#A16207", dark: "#7A6D54" }, // Amber / Muted amber-gray
+  { light: "#B91C1C", dark: "#7A5B5B" }, // Red / Muted red-gray
+  { light: "#115E59", dark: "#4D6B68" }, // Teal / Muted teal-gray
+  { light: "#4B5563", dark: "#6B6F78" }, // Cool gray / Darker cool gray
 ];
 
 export default function SpendingChart({ categories, selectedCategory, onSelectCategory }: Props) {
@@ -99,6 +99,8 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
             <YAxis
               tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}
               tickFormatter={(value) => `$${value}`}
+              domain={[0, 'dataMax']}
+              allowDataOverflow={false}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? "#2a2a2a" : "#E8E6E1" }} />
 
