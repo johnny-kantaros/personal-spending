@@ -6,7 +6,7 @@ import os
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from plaid.exceptions import ApiException
-from src.auth import verify_credentials
+from src.auth import verify_token, verify_login_credentials, create_access_token, LoginRequest, TokenResponse
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.products import Products
@@ -37,6 +37,21 @@ from src.services.plaid_client import plaid_client
 from src.services.transactions_sync import sync_transactions
 router = APIRouter()
 
+
+@router.post("/login", response_model=TokenResponse)
+async def login(login_request: LoginRequest):
+    """
+    Login endpoint - returns JWT token if credentials are valid.
+    """
+    if not verify_login_credentials(login_request.username, login_request.password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password"
+        )
+
+    access_token = create_access_token(login_request.username)
+    return TokenResponse(access_token=access_token)
+
 def format_error(e: ApiException):
     return {
         "status_code": e.status,
@@ -56,7 +71,7 @@ def get_transactions(
     month: Optional[int] = None,
     year: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     try:
         transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=item_ids)
@@ -68,7 +83,7 @@ def get_transactions(
 
 
 @router.post("/link_token/create")
-def create_link_token(body: LinkTokenRequest, current_user: str = Depends(verify_credentials)):
+def create_link_token(body: LinkTokenRequest, current_user: str = Depends(verify_token)):
     environment = os.getenv("PLAID_ENV", "sandbox")
     redirect_uri = os.getenv("PLAID_REDIRECT_URI_PROD") if environment == "production" else os.getenv("PLAID_REDIRECT_URI_DEV")
     request = LinkTokenCreateRequest(
@@ -88,7 +103,7 @@ class PublicTokenRequest(BaseModel):
 
 
 @router.post("/item/public_token/exchange")
-def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
+def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
     try:
         # Exchange the public_token for an access_token
         request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
@@ -128,7 +143,7 @@ def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db
 
 
 @router.get("/items")
-def get_connected_items(db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
+def get_connected_items(db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
     """
     Returns a list of connected items (banks) stored in the database.
     """
@@ -144,7 +159,7 @@ def get_connected_items(db: Session = Depends(get_db), current_user: str = Depen
     return {"items": result}
 
 @router.post("/items/sync")
-def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
+def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
     items = db.query(Item).options(joinedload(Item.transactions)).all()
     results = []
 
@@ -174,7 +189,7 @@ def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(ve
 def get_monthly_summary(
     item_ids: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     try:
         items: Sequence[Item] = get_items_by_ids(db=db, item_ids=item_ids)
@@ -237,7 +252,7 @@ def update_category(
     transaction_id: str,
     body: UpdateCategoryRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Update the simplified category for a transaction.
@@ -264,7 +279,7 @@ def link_payment(
     transaction_id: str,
     body: LinkTransactionRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Link a payment transaction to a parent transaction (e.g., Venmo to dinner).
@@ -286,7 +301,7 @@ def link_payment(
 def unlink_payment(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Unlink a payment transaction from its parent.
@@ -307,7 +322,7 @@ def unlink_payment(
 def get_linked(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Get all payment transactions linked to a parent transaction.
@@ -328,7 +343,7 @@ def set_vendor_rule(
     transaction_id: str,
     body: SetVendorRuleRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Set a vendor category rule based on a transaction's merchant.
@@ -372,7 +387,7 @@ def set_vendor_rule(
 def exclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Exclude a transaction from spending view.
@@ -390,7 +405,7 @@ def exclude_transaction_endpoint(
 def unexclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_credentials),
+    current_user: str = Depends(verify_token),
 ):
     """
     Unexclude a transaction (restore to spending view).

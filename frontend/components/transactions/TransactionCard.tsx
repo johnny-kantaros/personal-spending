@@ -206,7 +206,7 @@ export default function TransactionCard({ tx, allTransactions = [], onCategoryUp
               Set as default?
             </h3>
             <p className="text-sm text-[#6B645D] dark:text-[#938a87] mb-6">
-              Should "{tx.merchant_name || tx.name}" always be in {pendingCategory}?
+              Should &quot;{tx.merchant_name || tx.name}&quot; always be in {pendingCategory}?
             </p>
             <div className="flex gap-3">
               <button

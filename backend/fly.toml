@@ -11,6 +11,7 @@ primary_region = 'sjc'
 [env]
   PLAID_ENV = 'production'
   PYTHON_VERSION = '3.13'
+  JWT_SECRET_KEY = 'FastHerdFoldLump2!'
 
 [[mounts]]
   source = 'spending_data'

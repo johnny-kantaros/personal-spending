@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getConnectedItems, getTransactions, getTransactionsSummary } from "@/lib/plaid";
+import { isAuthenticated, logout } from "@/lib/auth";
 import TransactionList from "@/components/transactions/TransactionList";
 import MonthSelector from "@/components/transactions/MonthSelector";
 import BankSelector from "@/components/transactions/BankSelector";
@@ -38,6 +39,13 @@ interface MonthlySummary {
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Auth check
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+    }
+  }, [router]);
 
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<MonthlySummary[]>([]);
@@ -242,7 +250,15 @@ function DashboardContent() {
                 Track and analyze your spending across all accounts
               </p>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={logout}
+                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Logout
+              </button>
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Action Buttons */}

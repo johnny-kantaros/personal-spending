@@ -1,30 +1,77 @@
 """
-Simple HTTP Basic Authentication for the API.
+JWT-based authentication for the API.
 """
 import os
 import secrets
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 
-security = HTTPBasic()
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-to-a-random-secret-key")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_DAYS = 30
+
+security = HTTPBearer()
 
 
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+def verify_login_credentials(username: str, password: str) -> bool:
     """
-    Verify HTTP Basic Auth credentials.
-    Compares against AUTH_USERNAME and AUTH_PASSWORD environment variables.
+    Verify username and password against environment variables.
     """
-    username = os.getenv("AUTH_USERNAME", "admin")
-    password = os.getenv("AUTH_PASSWORD", "changeme")
+    correct_username = os.getenv("AUTH_USERNAME", "admin")
+    correct_password = os.getenv("AUTH_PASSWORD", "changeme")
 
-    correct_username = secrets.compare_digest(credentials.username.encode("utf8"), username.encode("utf8"))
-    correct_password = secrets.compare_digest(credentials.password.encode("utf8"), password.encode("utf8"))
+    username_match = secrets.compare_digest(username.encode("utf8"), correct_username.encode("utf8"))
+    password_match = secrets.compare_digest(password.encode("utf8"), correct_password.encode("utf8"))
 
-    if not (correct_username and correct_password):
+    return username_match and password_match
+
+
+def create_access_token(username: str) -> str:
+    """
+    Create a JWT access token.
+    """
+    expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    to_encode = {"sub": username, "exp": expire}
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """
+    Verify JWT token from Authorization header.
+    """
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+        return username
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
+            detail="Token has expired",
         )
-
-    return credentials.username
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
