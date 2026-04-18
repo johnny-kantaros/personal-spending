@@ -37,3 +37,7 @@ app.add_middleware(
 )
 # Register routes
 app.include_router(transactions_router, prefix="/api")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
