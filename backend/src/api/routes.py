@@ -199,11 +199,25 @@ def get_monthly_summary(
             for t in item.transactions:
                 if not t.date:
                     continue
-                # Skip excluded categories
-                if t.primary_category and t.primary_category in EXCLUDE_CATEGORIES:
+
+                # Apply same filter logic as transaction list query
+                # Allow Venmo P2P but exclude other transfers
+                is_excluded_category = (
+                    (t.primary_category and t.primary_category in EXCLUDE_CATEGORIES) or
+                    (t.detailed_category and t.detailed_category in EXCLUDE_DETAILED_CATEGORIES)
+                )
+
+                # Exception: Allow Venmo P2P transfers (not bank transfers)
+                is_venmo_p2p = (
+                    'venmo' in (item.institution_name or '').lower() and
+                    t.detailed_category != 'TRANSFER_OUT_ACCOUNT_TRANSFER' and
+                    t.name != 'Standard transfer'
+                )
+
+                # Skip if excluded and NOT a Venmo P2P exception
+                if is_excluded_category and not is_venmo_p2p:
                     continue
-                if t.detailed_category and t.detailed_category in EXCLUDE_DETAILED_CATEGORIES:
-                    continue
+
                 # Skip if no simplified category (shouldn't happen but be safe)
                 if not t.simplified_category:
                     continue
