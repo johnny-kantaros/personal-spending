@@ -32,7 +32,7 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem("access_token", data.access_token);
       router.push("/");
-    } catch (err) {
+    } catch {
       setError("Failed to connect to server");
       setLoading(false);
     }

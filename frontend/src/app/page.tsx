@@ -152,7 +152,7 @@ function DashboardContent() {
     (async () => {
       try {
         const txs: Transaction[] = await getTransactions(selectedBanks, selectedMonth);
-        setAllTransactions(txs.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
+        setAllTransactions(txs.sort((a: Transaction, b: Transaction) => Math.abs(b.amount) - Math.abs(a.amount)));
       } catch (err) {
         console.error(err);
       } finally {
@@ -197,7 +197,7 @@ function DashboardContent() {
         getTransactions(selectedBanks, selectedMonth),
         getTransactionsSummary(selectedBanks),
       ]);
-      setAllTransactions(txs.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
+      setAllTransactions(txs.sort((a: Transaction, b: Transaction) => Math.abs(b.amount) - Math.abs(a.amount)));
       setSummary(summaryData);
     } catch (err) {
       console.error(err);
@@ -228,7 +228,7 @@ function DashboardContent() {
       }
 
       const txs: Transaction[] = await getTransactions(selectedBanks, selectedMonth);
-      setAllTransactions(txs.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
+      setAllTransactions(txs.sort((a: Transaction, b: Transaction) => Math.abs(b.amount) - Math.abs(a.amount)));
     } catch (err) {
       console.error(err);
     } finally {
