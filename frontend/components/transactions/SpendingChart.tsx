@@ -12,6 +12,7 @@ interface Props {
   categories: CategoryData[];
   selectedCategory?: string;
   onSelectCategory?: (category?: string) => void;
+  selectedMonth?: string;
 }
 
 // Modern, clean color palette
@@ -26,9 +27,31 @@ const colorPalette = [
   { light: "#4B5563", dark: "#6B6F78" }, // Cool gray / Darker cool gray
 ];
 
-export default function SpendingChart({ categories, selectedCategory, onSelectCategory }: Props) {
+export default function SpendingChart({ categories, selectedCategory, onSelectCategory, selectedMonth }: Props) {
   const { effectiveTheme } = useTheme();
   const isDark = effectiveTheme === "dark";
+
+  // Calculate total spending
+  const totalSpending = categories.reduce((sum, cat) => sum + cat.total, 0);
+
+  // Format month name (using UTC to avoid timezone issues)
+  const monthName = selectedMonth
+    ? new Date(selectedMonth + "-01T00:00:00").toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC"
+      })
+    : "";
+
+  // Format currency with commas
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Math.abs(amount));
+  };
 
   const handleClick = (categoryName: string) => {
     if (!onSelectCategory) return;
@@ -70,9 +93,16 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
 
   return (
     <div className="w-full bg-[#F5F4F0] dark:bg-[#19191a] rounded-lg border border-[#D8D5D0] dark:border-[#363636] p-6 shadow-sm">
-      <h2 className="text-xl font-semibold mb-4 text-[#2D2A27] dark:text-[#E6EAF0]">
-        Spending by Category
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold text-[#2D2A27] dark:text-[#E6EAF0]">
+          Spending by Category
+        </h2>
+        {monthName && (
+          <p className="text-base font-medium text-[#6B645D] dark:text-[#b0a8a5]">
+            Total {monthName} Spending: <span className="text-[#2D2A27] dark:text-[#E6EAF0] font-semibold">{formatCurrency(totalSpending)}</span>
+          </p>
+        )}
+      </div>
       <div className="w-full h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
@@ -98,7 +128,13 @@ export default function SpendingChart({ categories, selectedCategory, onSelectCa
             />
             <YAxis
               tick={{ fill: isDark ? "#b0a8a5" : "#6B645D", fontSize: 12 }}
-              tickFormatter={(value) => `$${value}`}
+              tickFormatter={(value) => {
+                const num = Number(value);
+                if (isNaN(num)) return '$0';
+                if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
+                if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
+                return `$${num.toFixed(0)}`;
+              }}
               domain={[0, 'dataMax']}
               allowDataOverflow={false}
             />

@@ -287,6 +287,7 @@ function DashboardContent() {
             categories={chartData}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            selectedMonth={selectedMonth}
           />
         </div>
 
