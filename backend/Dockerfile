@@ -15,8 +15,14 @@ RUN poetry config virtualenvs.create false \
 # Copy application code
 COPY . .
 
+# Create data directory for persistent storage
+RUN mkdir -p /data
+
 # Expose port
 EXPOSE 8080
+
+# Set database path environment variable
+ENV DATABASE_PATH=/data/plaid.db
 
 # Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
