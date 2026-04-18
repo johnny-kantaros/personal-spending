@@ -1,6 +1,6 @@
 from typing import Optional, List, Sequence
 
-from sqlalchemy import select, extract
+from sqlalchemy import select, extract, or_, and_
 from sqlalchemy.orm import joinedload, Session
 
 from src.constants import EXCLUDE_CATEGORIES, EXCLUDE_DETAILED_CATEGORIES
@@ -19,11 +19,22 @@ def fetch_transactions_by_month(db: Session, month: Optional[int], year: Optiona
             extract("month", Transaction.date) == month,
         )
 
+    # Exclude categories, BUT allow Venmo person-to-person transfers
+    # (exclude only "Standard transfer" Venmo-to-bank transactions)
     statement = statement.filter(
-        Transaction.primary_category.notin_(EXCLUDE_CATEGORIES)
-    )
-    statement = statement.filter(
-        Transaction.detailed_category.notin_(EXCLUDE_DETAILED_CATEGORIES)
+        or_(
+            # Not in excluded categories
+            and_(
+                Transaction.primary_category.notin_(EXCLUDE_CATEGORIES),
+                Transaction.detailed_category.notin_(EXCLUDE_DETAILED_CATEGORIES)
+            ),
+            # OR it's a Venmo transaction that's NOT a bank transfer
+            and_(
+                Item.institution_name.ilike('%venmo%'),
+                Transaction.detailed_category != 'TRANSFER_OUT_ACCOUNT_TRANSFER',
+                Transaction.name != 'Standard transfer'
+            )
+        )
     )
     # Exclude transactions that are linked to another transaction
     statement = statement.filter(
