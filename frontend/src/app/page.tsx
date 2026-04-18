@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getConnectedItems, getTransactions, getTransactionsSummary } from "@/lib/plaid";
+import { getConnectedItems, getTransactions, getTransactionsSummary, syncTransactions } from "@/lib/plaid";
 import { isAuthenticated, logout } from "@/lib/auth";
 import TransactionList from "@/components/transactions/TransactionList";
 import MonthSelector from "@/components/transactions/MonthSelector";
@@ -209,10 +209,7 @@ function DashboardContent() {
     if (!availableBanks.length) return;
     setSyncing(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/items/sync`, {
-        method: "POST",
-      });
-      const result = await res.json();
+      const result = await syncTransactions();
       console.log("Sync result:", result);
       // After sync, refetch transactions and summary
       const data: MonthlySummary[] = await getTransactionsSummary(selectedBanks);
