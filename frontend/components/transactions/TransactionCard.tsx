@@ -186,10 +186,11 @@ export default function TransactionCard({ tx, allTransactions = [], onCategoryUp
     }
   };
 
-  // Filter to show recent spending transactions (positive amounts = money out, within last 60 days)
+  // Filter to show recent spending transactions (positive amounts = money out, within last 60 days, same category)
   const recentSpending = allTransactions.filter(t => {
     if (t.amount <= 0) return false; // Exclude income/Venmo (negative amounts)
     if (!t.simplified_category) return false; // Exclude uncategorized
+    if (t.simplified_category !== tx.simplified_category) return false; // Only show same category
     const daysDiff = Math.abs(new Date(tx.date).getTime() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24);
     return daysDiff <= 60;
   }).slice(0, 20);
