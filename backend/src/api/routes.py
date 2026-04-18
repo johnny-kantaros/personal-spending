@@ -217,12 +217,21 @@ def get_monthly_summary(
                 month_key = t.date.strftime("%Y-%m")  # e.g., "2025-10"
                 category = t.simplified_category
 
-                # Calculate adjusted amount (original - linked payments)
-                # t.amount = 172 (positive = spending), linked = -100 (negative = income)
-                # We want: 172 - 100 = 72
+                # In Plaid: positive amount = spending (OUT), negative = income (IN)
+                # Calculate adjusted amount (spending - linked reimbursements)
+                # Example: dinner = $200, linked payment from friend = -$50 absolute value
+                # Result: $200 - $50 = $150 actual spending
                 linked_payments = get_linked_payments(db=db, parent_transaction_id=t.transaction_id)
                 linked_total = sum(abs(p.amount) for p in linked_payments)
-                adjusted_amount = t.amount - linked_total
+
+                # For spending (positive): amount - linked payments
+                # For reimbursements (negative): just use the amount as-is to subtract from total
+                if t.amount > 0:
+                    # Spending transaction
+                    adjusted_amount = t.amount - linked_total
+                else:
+                    # Reimbursement/income transaction - use as-is (negative value reduces total)
+                    adjusted_amount = t.amount
 
                 summary[month_key][category] += adjusted_amount
 
