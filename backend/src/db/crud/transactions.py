@@ -1,6 +1,6 @@
 from typing import Optional, List, Sequence
 
-from sqlalchemy import select, extract, or_, and_
+from sqlalchemy import select, extract, or_, and_, not_
 from sqlalchemy.orm import joinedload, Session
 
 from src.constants import EXCLUDE_CATEGORIES, EXCLUDE_DETAILED_CATEGORIES
@@ -48,8 +48,8 @@ def fetch_transactions_by_month(db: Session, month: Optional[int], year: Optiona
                 Transaction.detailed_category != 'INCOME_WAGES',
                 # Exclude generic transfer names
                 Transaction.name != 'Standard transfer',
-                Transaction.name.notlike('Transfer %'),
-                Transaction.name.notlike('Online Transfer%')
+                ~Transaction.name.like('Transfer %'),
+                ~Transaction.name.like('Online Transfer%')
             )
         )
     )
