@@ -6,6 +6,7 @@ import os
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from plaid.exceptions import ApiException
+from src.auth import verify_credentials
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.products import Products
@@ -55,6 +56,7 @@ def get_transactions(
     month: Optional[int] = None,
     year: Optional[int] = None,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     try:
         transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=item_ids)
@@ -66,7 +68,7 @@ def get_transactions(
 
 
 @router.post("/link_token/create")
-def create_link_token(body: LinkTokenRequest):
+def create_link_token(body: LinkTokenRequest, current_user: str = Depends(verify_credentials)):
     environment = os.getenv("PLAID_ENV", "sandbox")
     redirect_uri = os.getenv("PLAID_REDIRECT_URI_PROD") if environment == "production" else os.getenv("PLAID_REDIRECT_URI_DEV")
     request = LinkTokenCreateRequest(
@@ -86,7 +88,7 @@ class PublicTokenRequest(BaseModel):
 
 
 @router.post("/item/public_token/exchange")
-def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db)):
+def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
     try:
         # Exchange the public_token for an access_token
         request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
@@ -126,7 +128,7 @@ def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db
 
 
 @router.get("/items")
-def get_connected_items(db: Session = Depends(get_db)):
+def get_connected_items(db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
     """
     Returns a list of connected items (banks) stored in the database.
     """
@@ -142,7 +144,7 @@ def get_connected_items(db: Session = Depends(get_db)):
     return {"items": result}
 
 @router.post("/items/sync")
-def sync_all_items(db: Session = Depends(get_db)):
+def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(verify_credentials)):
     items = db.query(Item).options(joinedload(Item.transactions)).all()
     results = []
 
@@ -172,6 +174,7 @@ def sync_all_items(db: Session = Depends(get_db)):
 def get_monthly_summary(
     item_ids: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     try:
         items: Sequence[Item] = get_items_by_ids(db=db, item_ids=item_ids)
@@ -234,6 +237,7 @@ def update_category(
     transaction_id: str,
     body: UpdateCategoryRequest,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Update the simplified category for a transaction.
@@ -260,6 +264,7 @@ def link_payment(
     transaction_id: str,
     body: LinkTransactionRequest,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Link a payment transaction to a parent transaction (e.g., Venmo to dinner).
@@ -281,6 +286,7 @@ def link_payment(
 def unlink_payment(
     transaction_id: str,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Unlink a payment transaction from its parent.
@@ -301,6 +307,7 @@ def unlink_payment(
 def get_linked(
     transaction_id: str,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Get all payment transactions linked to a parent transaction.
@@ -321,6 +328,7 @@ def set_vendor_rule(
     transaction_id: str,
     body: SetVendorRuleRequest,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Set a vendor category rule based on a transaction's merchant.
@@ -364,6 +372,7 @@ def set_vendor_rule(
 def exclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Exclude a transaction from spending view.
@@ -381,6 +390,7 @@ def exclude_transaction_endpoint(
 def unexclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
+    current_user: str = Depends(verify_credentials),
 ):
     """
     Unexclude a transaction (restore to spending view).
