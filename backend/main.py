@@ -25,6 +25,7 @@ app = FastAPI(title="Plaid FastAPI", lifespan=lifespan)
 origins = [
     "http://localhost:3000",
     "https://spending-tracker.vercel.app",
+    "https://personal-spending.vercel.app",
     "http://10.0.0.88:3000",
 ]
 
