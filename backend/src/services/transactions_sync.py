@@ -34,8 +34,10 @@ def sync_transactions(item: Item, db: Session):
                 primary = pf_category.get("primary")
                 detailed = pf_category.get("detailed")
 
-                # Determine simplified category
-                default_category = get_simplified_category(primary, detailed) if primary else None
+                # Determine simplified category (default to "Other" for uncategorized)
+                default_category = get_simplified_category(primary, detailed) if primary else "Other"
+                if default_category is None:
+                    default_category = "Other"
 
                 transaction = Transaction(
                     transaction_id=tx["transaction_id"],

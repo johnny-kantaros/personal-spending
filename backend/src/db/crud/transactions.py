@@ -62,11 +62,13 @@ def fetch_transactions_by_month(db: Session, month: Optional[int], year: Optiona
         Transaction.excluded == False
     )
 
-    # Exclude specific merchant patterns (Vault transfers, Kraken, IRS refunds, generic SoFi transfers)
+    # Exclude specific merchant patterns (Vault transfers, Kraken, IRS refunds, generic account transfers)
     statement = statement.filter(
         ~Transaction.name.ilike('%Vault%'),
         ~Transaction.name.ilike('%Kraken%'),
         ~Transaction.name.ilike('IRS %'),
+        ~Transaction.name.ilike('SOFI SECURITIES%'),
+        ~Transaction.name.ilike('KRAKEN EXCHANGE%'),
         Transaction.name != 'SoFi'  # Generic SoFi transfers (not merchant purchases)
     )
 
