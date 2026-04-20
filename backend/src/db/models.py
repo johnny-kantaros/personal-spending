@@ -1,10 +1,23 @@
 from sqlalchemy import Column, String, Float, Date, Boolean, ForeignKey, JSON, Index, DateTime
 from datetime import datetime
+import uuid
 
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, unique=True, nullable=True, index=True)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship("Item", back_populates="user")
+    vendor_rules = relationship("VendorCategoryRule", back_populates="user")
 
 class Item(Base):
     __tablename__ = "items"
@@ -12,8 +25,10 @@ class Item(Base):
     access_token = Column(String, nullable=False)
     institution_name = Column(String, nullable=True)
     cursor = Column(String, default="")
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
 
     transactions = relationship("Transaction", back_populates="item")
+    user = relationship("User", back_populates="items")
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -67,10 +82,13 @@ class VendorCategoryRule(Base):
     __tablename__ = "vendor_category_rules"
 
     id = Column(String, primary_key=True)
-    vendor_name = Column(String, nullable=False, unique=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    vendor_name = Column(String, nullable=False, index=True)
     simplified_category = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User", back_populates="vendor_rules")
+
     __table_args__ = (
-        Index('ix_vendor_name', 'vendor_name'),
+        Index('ix_vendor_user_name', 'user_id', 'vendor_name', unique=True),
     )

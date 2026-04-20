@@ -6,7 +6,8 @@ import os
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from plaid.exceptions import ApiException
-from src.auth import verify_token, verify_login_credentials, create_access_token, LoginRequest, TokenResponse
+from src.auth import verify_token, create_access_token, LoginRequest, TokenResponse
+from src.db.crud.users import authenticate_user
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.products import Products
@@ -38,20 +39,6 @@ from src.services.transactions_sync import sync_transactions
 router = APIRouter()
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(login_request: LoginRequest):
-    """
-    Login endpoint - returns JWT token if credentials are valid.
-    """
-    if not verify_login_credentials(login_request.username, login_request.password):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password"
-        )
-
-    access_token = create_access_token(login_request.username)
-    return TokenResponse(access_token=access_token)
-
 def format_error(e: ApiException):
     return {
         "status_code": e.status,
@@ -65,16 +52,39 @@ def get_db():
     finally:
         db.close()
 
+@router.post("/login", response_model=TokenResponse)
+async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
+    """
+    Login endpoint - returns JWT token if credentials are valid.
+    """
+    user = authenticate_user(db, login_request.username, login_request.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password"
+        )
+
+    access_token = create_access_token(user.id, user.username)
+    return TokenResponse(access_token=access_token)
+
 @router.get("/transactions", response_model=List[TransactionBase])
 def get_transactions(
     item_ids: Optional[List[str]] = Query(None),
     month: Optional[int] = None,
     year: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     try:
-        transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=item_ids)
+        # Filter items by user first
+        user_items = get_items_by_ids(db=db, user_id=user_id, item_ids=item_ids)
+        user_item_ids = [item.id for item in user_items]
+
+        # If user has no items, return empty list
+        if not user_item_ids:
+            return []
+
+        transactions = fetch_transactions_by_month(db=db, month=month, year=year, item_ids=user_item_ids)
         return [TransactionBase.model_validate(t) for t in transactions]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -83,12 +93,12 @@ def get_transactions(
 
 
 @router.post("/link_token/create")
-def create_link_token(body: LinkTokenRequest, current_user: str = Depends(verify_token)):
+def create_link_token(body: LinkTokenRequest, user_id: str = Depends(verify_token)):
     environment = os.getenv("PLAID_ENV", "sandbox")
     redirect_uri = os.getenv("PLAID_REDIRECT_URI_PROD") if environment == "production" else os.getenv("PLAID_REDIRECT_URI_DEV")
     request = LinkTokenCreateRequest(
-        user={"client_user_id": body.user_id},
-        client_name="Johnny's Spending Tracker",
+        user={"client_user_id": user_id},  # Use actual user_id from JWT
+        client_name="Personal Spending Tracker",
         products=[Products("transactions")],
         country_codes=[CountryCode("US")],
         language="en",
@@ -103,7 +113,7 @@ class PublicTokenRequest(BaseModel):
 
 
 @router.post("/item/public_token/exchange")
-def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
+def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db), user_id: str = Depends(verify_token)):
     try:
         # Exchange the public_token for an access_token
         request = ItemPublicTokenExchangeRequest(public_token=body.public_token)
@@ -130,6 +140,7 @@ def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db
             item_id=item_id,
             access_token=access_token,
             institution_name=institution_name,
+            user_id=user_id,
             db=db
         )
 
@@ -143,11 +154,11 @@ def exchange_public_token(body: PublicTokenRequest, db: Session = Depends(get_db
 
 
 @router.get("/items")
-def get_connected_items(db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
+def get_connected_items(db: Session = Depends(get_db), user_id: str = Depends(verify_token)):
     """
-    Returns a list of connected items (banks) stored in the database.
+    Returns a list of connected items (banks) for the authenticated user.
     """
-    items = db.query(Item).options(joinedload(Item.transactions)).all()
+    items = db.query(Item).filter(Item.user_id == user_id).options(joinedload(Item.transactions)).all()
     result = []
 
     for item in items:
@@ -159,8 +170,8 @@ def get_connected_items(db: Session = Depends(get_db), current_user: str = Depen
     return {"items": result}
 
 @router.post("/items/sync")
-def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(verify_token)):
-    items = db.query(Item).options(joinedload(Item.transactions)).all()
+def sync_all_items(db: Session = Depends(get_db), user_id: str = Depends(verify_token)):
+    items = db.query(Item).filter(Item.user_id == user_id).options(joinedload(Item.transactions)).all()
     results = []
 
     for item in items:
@@ -189,10 +200,10 @@ def sync_all_items(db: Session = Depends(get_db), current_user: str = Depends(ve
 def get_monthly_summary(
     item_ids: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     try:
-        items: Sequence[Item] = get_items_by_ids(db=db, item_ids=item_ids)
+        items: Sequence[Item] = get_items_by_ids(db=db, user_id=user_id, item_ids=item_ids)
         summary = defaultdict(lambda: defaultdict(float))
 
         for item in items:
@@ -275,18 +286,29 @@ def update_category(
     transaction_id: str,
     body: UpdateCategoryRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Update the simplified category for a transaction.
     """
     try:
+        # Verify transaction belongs to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         transaction = update_transaction_category(
             db=db,
             transaction_id=transaction_id,
             simplified_category=body.simplified_category
         )
         return TransactionBase.model_validate(transaction)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -302,18 +324,33 @@ def link_payment(
     transaction_id: str,
     body: LinkTransactionRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Link a payment transaction to a parent transaction (e.g., Venmo to dinner).
     """
     try:
+        # Verify both transactions belong to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        parent_transaction = db.query(Transaction).filter(Transaction.transaction_id == body.parent_transaction_id).first()
+
+        if not transaction or not parent_transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        transaction_item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        parent_item = db.query(Item).filter(Item.id == parent_transaction.item_id, Item.user_id == user_id).first()
+
+        if not transaction_item or not parent_item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         transaction = link_transaction(
             db=db,
             payment_transaction_id=transaction_id,
             parent_transaction_id=body.parent_transaction_id
         )
         return TransactionBase.model_validate(transaction)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -324,17 +361,28 @@ def link_payment(
 def unlink_payment(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Unlink a payment transaction from its parent.
     """
     try:
+        # Verify transaction belongs to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         transaction = unlink_transaction(
             db=db,
             payment_transaction_id=transaction_id
         )
         return TransactionBase.model_validate(transaction)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -345,14 +393,25 @@ def unlink_payment(
 def get_linked(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Get all payment transactions linked to a parent transaction.
     """
     try:
+        # Verify transaction belongs to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         linked = get_linked_payments(db=db, parent_transaction_id=transaction_id)
         return [TransactionBase.model_validate(t) for t in linked]
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while fetching linked transactions")
 
@@ -366,30 +425,36 @@ def set_vendor_rule(
     transaction_id: str,
     body: SetVendorRuleRequest,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Set a vendor category rule based on a transaction's merchant.
-    Applies to all existing and future transactions from this vendor.
+    Applies to all existing and future transactions from this vendor for this user.
     """
     try:
-        # Get the transaction to extract vendor name
+        # Get the transaction and verify it belongs to user
         transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
         if not transaction:
             raise HTTPException(status_code=404, detail="Transaction not found")
 
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         vendor_name = get_vendor_name_from_transaction(transaction)
 
-        # Create or update the rule
+        # Create or update the rule for this user
         rule = create_or_update_vendor_rule(
             db=db,
+            user_id=user_id,
             vendor_name=vendor_name,
             simplified_category=body.simplified_category
         )
 
-        # Apply to all existing transactions from this specific vendor
+        # Apply to all existing transactions from this vendor for this user
         updated_count = apply_vendor_rule_to_transactions(
             db=db,
+            user_id=user_id,
             vendor_name=vendor_name,
             simplified_category=body.simplified_category
         )
@@ -410,14 +475,25 @@ def set_vendor_rule(
 def exclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Exclude a transaction from spending view.
     """
     try:
+        # Verify transaction belongs to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         transaction = exclude_transaction(db=db, transaction_id=transaction_id)
         return TransactionBase.model_validate(transaction)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -428,14 +504,25 @@ def exclude_transaction_endpoint(
 def unexclude_transaction_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: str = Depends(verify_token),
+    user_id: str = Depends(verify_token),
 ):
     """
     Unexclude a transaction (restore to spending view).
     """
     try:
+        # Verify transaction belongs to user
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        item = db.query(Item).filter(Item.id == transaction.item_id, Item.user_id == user_id).first()
+        if not item:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         transaction = unexclude_transaction(db=db, transaction_id=transaction_id)
         return TransactionBase.model_validate(transaction)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -2,12 +2,16 @@
 
 Track your spending by connecting bank accounts through Plaid. Automatically syncs transactions and shows you where your money goes.
 
+**Multi-user support:** Each user can connect their own bank accounts with full data isolation.
+
 ## What it does
 
 - Connects to your banks via Plaid
 - Syncs transactions automatically
 - Shows spending by category with charts
 - Filter by date and account
+- Multi-user support with secure authentication
+- Per-user vendor category rules
 
 ## Tech
 
@@ -53,3 +57,15 @@ Backend: `http://localhost:8000`
 - Category-based spending charts
 - Filter by month/year
 - Multi-account support
+- Multi-user support with data isolation
+- Secure JWT-based authentication
+- Manual user management for family & friends
+
+## Multi-User Setup
+
+If you're migrating from single-user to multi-user, or setting up for the first time:
+
+1. Run the migration: `cd backend && poetry run python src/scripts/add_users_table.py`
+2. Create users: `poetry run python src/scripts/create_user.py`
+
+See [MULTI_USER_MIGRATION.md](MULTI_USER_MIGRATION.md) for complete migration instructions.
