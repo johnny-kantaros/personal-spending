@@ -2,13 +2,13 @@
 JWT-based authentication for the API.
 """
 import os
-import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-to-a-random-secret-key")
 ALGORITHM = "HS256"
@@ -27,44 +27,48 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-def verify_login_credentials(username: str, password: str) -> bool:
-    """
-    Verify username and password against environment variables.
-    """
-    correct_username = os.getenv("AUTH_USERNAME", "admin")
-    correct_password = os.getenv("AUTH_PASSWORD", "changeme")
-
-    username_match = secrets.compare_digest(username.encode("utf8"), correct_username.encode("utf8"))
-    password_match = secrets.compare_digest(password.encode("utf8"), correct_password.encode("utf8"))
-
-    return username_match and password_match
-
-
-def create_access_token(username: str) -> str:
+def create_access_token(user_id: str, username: str) -> str:
     """
     Create a JWT access token.
+
+    Args:
+        user_id: User ID to embed in token
+        username: Username (for convenience)
+
+    Returns:
+        Encoded JWT token
     """
     expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    to_encode = {"sub": username, "exp": expire}
+    to_encode = {
+        "sub": user_id,  # Subject is now user_id instead of username
+        "username": username,
+        "exp": expire
+    }
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
-    Verify JWT token from Authorization header.
+    Verify JWT token from Authorization header and return user_id.
+
+    Returns:
+        user_id from the token
+
+    Raises:
+        HTTPException: If token is invalid or expired
     """
     token = credentials.credentials
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
-        return username
+        return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

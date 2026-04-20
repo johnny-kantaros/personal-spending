@@ -4,16 +4,17 @@ from src.db.models import VendorCategoryRule, Transaction
 import uuid
 
 
-def get_vendor_rule(db: Session, vendor_name: str) -> Optional[VendorCategoryRule]:
-    """Get the category rule for a vendor."""
+def get_vendor_rule(db: Session, user_id: str, vendor_name: str) -> Optional[VendorCategoryRule]:
+    """Get the category rule for a vendor for a specific user."""
     return db.query(VendorCategoryRule).filter(
+        VendorCategoryRule.user_id == user_id,
         VendorCategoryRule.vendor_name == vendor_name
     ).first()
 
 
-def create_or_update_vendor_rule(db: Session, vendor_name: str, simplified_category: str) -> VendorCategoryRule:
-    """Create or update a vendor category rule."""
-    existing = get_vendor_rule(db, vendor_name)
+def create_or_update_vendor_rule(db: Session, user_id: str, vendor_name: str, simplified_category: str) -> VendorCategoryRule:
+    """Create or update a vendor category rule for a specific user."""
+    existing = get_vendor_rule(db, user_id, vendor_name)
 
     if existing:
         existing.simplified_category = simplified_category
@@ -23,6 +24,7 @@ def create_or_update_vendor_rule(db: Session, vendor_name: str, simplified_categ
     else:
         rule = VendorCategoryRule(
             id=str(uuid.uuid4()),
+            user_id=user_id,
             vendor_name=vendor_name,
             simplified_category=simplified_category
         )
@@ -32,10 +34,13 @@ def create_or_update_vendor_rule(db: Session, vendor_name: str, simplified_categ
         return rule
 
 
-def apply_vendor_rule_to_transactions(db: Session, vendor_name: str, simplified_category: str) -> int:
-    """Apply a specific vendor rule to existing transactions. Returns count of updated transactions."""
-    # Update all transactions matching this vendor
-    transactions = db.query(Transaction).filter(
+def apply_vendor_rule_to_transactions(db: Session, user_id: str, vendor_name: str, simplified_category: str) -> int:
+    """Apply a specific vendor rule to existing transactions for a specific user. Returns count of updated transactions."""
+    from src.db.models import Item
+
+    # Update all transactions matching this vendor that belong to this user
+    transactions = db.query(Transaction).join(Item).filter(
+        Item.user_id == user_id,
         (Transaction.merchant_name == vendor_name) | (Transaction.name == vendor_name)
     ).all()
 
@@ -48,14 +53,17 @@ def apply_vendor_rule_to_transactions(db: Session, vendor_name: str, simplified_
     return updated_count
 
 
-def apply_vendor_rules_to_all_transactions(db: Session) -> int:
-    """Apply all vendor rules to existing transactions. Returns count of updated transactions."""
-    rules = db.query(VendorCategoryRule).all()
+def apply_vendor_rules_to_all_transactions(db: Session, user_id: str) -> int:
+    """Apply all vendor rules for a user to their existing transactions. Returns count of updated transactions."""
+    from src.db.models import Item
+
+    rules = db.query(VendorCategoryRule).filter(VendorCategoryRule.user_id == user_id).all()
     updated_count = 0
 
     for rule in rules:
-        # Update all transactions matching this vendor
-        transactions = db.query(Transaction).filter(
+        # Update all transactions matching this vendor that belong to this user
+        transactions = db.query(Transaction).join(Item).filter(
+            Item.user_id == user_id,
             (Transaction.merchant_name == rule.vendor_name) | (Transaction.name == rule.vendor_name)
         ).all()
 
