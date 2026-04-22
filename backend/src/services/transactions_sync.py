@@ -67,7 +67,7 @@ def sync_transactions(item: Item, db: Session):
 
                 # Check for vendor rule override
                 vendor_name = get_vendor_name_from_transaction(transaction)
-                vendor_rule = get_vendor_rule(db, vendor_name)
+                vendor_rule = get_vendor_rule(db, item.user_id, vendor_name)
                 if vendor_rule:
                     transaction.simplified_category = vendor_rule.simplified_category
 
