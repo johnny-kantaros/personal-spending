@@ -1,4 +1,5 @@
 # sync.py
+import logging
 from src.db.models import Item, Transaction
 from src.services.plaid_client import plaid_client
 from src.constants import get_simplified_category
@@ -6,6 +7,8 @@ from src.db.crud.vendor_rules import get_vendor_rule, get_vendor_name_from_trans
 from sqlalchemy.orm import Session
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from plaid.model.transactions_sync_request_options import TransactionsSyncRequestOptions
+
+logger = logging.getLogger(__name__)
 
 def sync_transactions(item: Item, db: Session):
     cursor = item.cursor or ""
@@ -21,13 +24,20 @@ def sync_transactions(item: Item, db: Session):
                     days_requested=730  # Request up to 2 years of history
                 )
 
-            request = TransactionsSyncRequest(
-                access_token=item.access_token,
-                cursor=cursor,
-                count=500,
-                options=options
-            )
+            kwargs = dict(access_token=item.access_token, cursor=cursor, count=500)
+            if options is not None:
+                kwargs["options"] = options
+            request = TransactionsSyncRequest(**kwargs)
             response = plaid_client.transactions_sync(request).to_dict()
+
+            # Log what we received from Plaid
+            added_count = len(response.get("added", []))
+            modified_count = len(response.get("modified", []))
+            removed_count = len(response.get("removed", []))
+            logger.info(f"Plaid sync for {item.institution_name}: added={added_count}, modified={modified_count}, removed={removed_count}, has_more={response.get('has_more', False)}")
+
+            if added_count > 0:
+                logger.info(f"Sample new transaction dates: {[tx.get('date') for tx in response.get('added', [])[:5]]}")
 
             for tx in response.get("added", []) + response.get("modified", []):
                 pf_category = tx.get("personal_finance_category") or {}
